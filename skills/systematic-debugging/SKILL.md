@@ -1,6 +1,6 @@
 ---
 name: systematic-debugging
-description: Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes
+description: Use when encountering any bug, error, test failure, or unexpected behavior — before proposing or attempting any fix
 ---
 
 # Systematic Debugging
@@ -111,7 +111,7 @@ You MUST complete each phase before proceeding to the next.
 
    **WHEN error is deep in call stack:**
 
-   See `root-cause-tracing.md` in this directory for the complete backward tracing technique.
+   See `superpowers:systematic-debugging` → `root-cause-tracing.md` for the complete backward tracing technique.
 
    **Quick version:**
    - Where does bad value originate?
@@ -129,7 +129,7 @@ You MUST complete each phase before proceeding to the next.
 
 2. **Compare Against References**
    - If implementing pattern, read reference implementation COMPLETELY
-   - Don't skim - read every line
+   - Don't skim — read every line
    - Understand the pattern fully before applying
 
 3. **Identify Differences**
@@ -176,7 +176,7 @@ You MUST complete each phase before proceeding to the next.
    - Automated test if possible
    - One-off test script if no framework
    - MUST have before fixing
-   - Use the `superpowers:test-driven-development` skill for writing proper failing tests
+   - Use **superpowers:test-driven-development** for writing proper failing tests
 
 2. **Implement Single Fix**
    - Address the root cause identified
@@ -193,8 +193,8 @@ You MUST complete each phase before proceeding to the next.
    - STOP
    - Count: How many fixes have you tried?
    - If < 3: Return to Phase 1, re-analyze with new information
-   - **If ≥ 3: STOP and question the architecture (step 5 below)**
-   - DON'T attempt Fix #4 without architectural discussion
+   - **If ≥ 3: STOP and question the architecture (see below)**
+   - DON'T attempt another fix without architectural discussion
 
 5. **If 3+ Fixes Failed: Question Architecture**
 
@@ -208,11 +208,66 @@ You MUST complete each phase before proceeding to the next.
    - Are we "sticking with it through sheer inertia"?
    - Should we refactor architecture vs. continue fixing symptoms?
 
-   **Discuss with the user before attempting more fixes**
+   **Discuss with the user before attempting more fixes.**
 
-   This is NOT a failed hypothesis - this is a wrong architecture.
+   This is NOT a failed hypothesis — this is a wrong architecture.
 
-## Red Flags - STOP and Follow Process
+## Long Session: Fork to Preserve Context
+
+When debugging is taking many turns and context is getting heavy:
+
+```
+IF debugging session has gone 10+ exchanges OR
+   context window is above 70% full:
+
+  Consider forking the session:
+  1. Summarize findings so far (what you know, what you've tried, current hypothesis)
+  2. Open a fresh session with that summary as context
+  3. Continue from the fresh session — clean context, same knowledge
+
+  Do NOT discard findings. The summary preserves them.
+```
+
+This prevents context exhaustion from corrupting later reasoning.
+
+## Parallel Hypothesis Testing (Team Context)
+
+When multiple independent root cause hypotheses exist in different subsystems:
+
+```
+IF 2+ hypotheses are plausible AND
+   each lives in a different subsystem/component:
+
+  Use dispatching-parallel-agents to investigate concurrently:
+  - Each agent investigates one hypothesis in isolation
+  - Agents report findings independently
+  - Lead evaluates findings and identifies root cause
+
+  Faster than sequential investigation for multi-component bugs.
+```
+
+Do not use parallel investigation when hypotheses are interdependent — investigate Phase 2 first to confirm independence.
+
+## State Persistence (Cross-Session Debugging)
+
+For bugs that take multiple sessions to resolve, record findings in `.superpowers/state.yml`:
+
+```yaml
+# Add under a debug key if debugging spans sessions
+debug:
+  issue: "brief description"
+  phase: 2                      # current phase
+  confirmed_not_root_cause:
+    - "tried X — ruled out because Y"
+    - "tried Z — ruled out because W"
+  current_hypothesis: "the problem is in component A because B"
+  evidence_gathered:
+    - "component boundary log shows X enters but Y exits"
+```
+
+On session resume, read this to skip re-investigation of already-ruled-out causes.
+
+## Red Flags — STOP and Follow Process
 
 If you catch yourself thinking:
 - "Quick fix for now, investigate later"
@@ -229,16 +284,16 @@ If you catch yourself thinking:
 
 **ALL of these mean: STOP. Return to Phase 1.**
 
-**If 3+ fixes failed:** Question the architecture (see Phase 4.5)
+**If 3+ fixes failed:** Question the architecture (see Phase 4 step 5)
 
 ## Signals You're Doing It Wrong
 
 **Watch for these redirections:**
-- "Is that not happening?" - You assumed without verifying
-- "Will it show us...?" - You should have added evidence gathering
-- "Stop guessing" - You're proposing fixes without understanding
-- "Ultrathink this" - Question fundamentals, not just symptoms
-- "We're stuck?" (frustrated) - Your approach isn't working
+- "Is that not happening?" — You assumed without verifying
+- "Will it show us...?" — You should have added evidence gathering
+- "Stop guessing" — You're proposing fixes without understanding
+- "Ultrathink this" — Question fundamentals, not just symptoms
+- "We're stuck?" (frustrated) — Your approach isn't working
 
 **When you see these:** STOP. Return to Phase 1.
 
@@ -277,19 +332,20 @@ If systematic investigation reveals issue is truly environmental, timing-depende
 
 ## Supporting Techniques
 
-These techniques are part of systematic debugging and available in this directory:
+Available in this skill's directory:
 
-- **`root-cause-tracing.md`** - Trace bugs backward through call stack to find original trigger
-- **`defense-in-depth.md`** - Add validation at multiple layers after finding root cause
-- **`condition-based-waiting.md`** - Replace arbitrary timeouts with condition polling
+- **`root-cause-tracing.md`** — Trace bugs backward through call stack to find original trigger
+- **`defense-in-depth.md`** — Add validation at multiple layers after finding root cause
+- **`condition-based-waiting.md`** — Replace arbitrary timeouts with condition polling
 
 **Related skills:**
-- **superpowers:test-driven-development** - For creating failing test case (Phase 4, Step 1)
-- **superpowers:verification-before-completion** - Verify fix worked before claiming success
+- **superpowers:test-driven-development** — For creating failing test case (Phase 4, Step 1)
+- **superpowers:verification-before-completion** — Verify fix worked before claiming success
+- **superpowers:dispatching-parallel-agents** — Parallel hypothesis investigation
 
 ## Team Context
 
-**Parallel investigation:** When multiple potential root causes exist in different subsystems, consider using `dispatching-parallel-agents` to investigate each hypothesis concurrently.
+**Parallel investigation:** When multiple potential root causes exist in different subsystems, use **superpowers:dispatching-parallel-agents** to investigate each hypothesis concurrently.
 
 **Team escalation:** When debugging blocks multiple team tasks, elevate to the team lead immediately rather than continuing to investigate alone. The lead can reassign dependent tasks or provide additional context.
 
