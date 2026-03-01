@@ -89,6 +89,17 @@ You: [Fix progress indicators]
 - Review before merge
 - Review when stuck
 
+## Team-Aware Review
+
+**Roster-aware reviewer dispatch:**
+When a team roster (from composing-teams) includes reviewer agents (e.g., `reviewer-architecture`, `reviewer-security`), use those agent definitions for review dispatch instead of the default `superpowers:code-reviewer`.
+
+**Peer review in teams:**
+When operating in a team context, specialists can peer-review each other's work:
+- Specialist A reviews Specialist B's work (within same wave or across waves)
+- Cross-domain review catches integration issues early
+- Peer review supplements (does not replace) formal spec and code quality review
+
 ## Red Flags
 
 **Never:**
