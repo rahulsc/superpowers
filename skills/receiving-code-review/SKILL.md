@@ -72,6 +72,11 @@ BEFORE implementing:
   3. Check: Reason for current implementation?
   4. Check: Works on all platforms/versions?
   5. Check: Does reviewer understand full context?
+  6. Check: Did reviewer provide citation evidence (file:line)?
+
+IF reviewer provides only prose ("looks good", "all requirements met"):
+  Ask: "Please provide file:line citations per requirement."
+  Do not implement until evidence is provided.
 
 IF suggestion seems wrong:
   Push back with technical reasoning
@@ -84,6 +89,29 @@ IF conflicts with the user's prior decisions:
 ```
 
 **Principle:** "External feedback - be skeptical, but check carefully"
+
+### Pedantry Filter
+
+Not all reviewer issues are equal. Before implementing a suggestion, classify it:
+
+| Category | Action |
+|----------|--------|
+| Real defect (breaks something, security gap, spec violation) | Fix immediately |
+| Style preference (naming, formatting, structure) | Push back if no stated project standard |
+| "Proper" engineering (unused abstraction, YAGNI violation) | Grep for usage, apply YAGNI |
+| Opinion without reasoning | Ask for technical justification |
+
+**Distinguishing style preference from real issue:** Ask "Does this change fix a bug or prevent a future bug?" If the answer is no, it is a preference — you may implement it or push back, but do not treat it as mandatory.
+
+### Review of Review
+
+When reviewer feedback is itself suspect — internally inconsistent, contradicts known requirements, or seems to miss obvious context — apply a review-of-review:
+
+1. State the specific concern: "This suggestion contradicts [requirement X] because [reason]."
+2. Ask the reviewer to clarify before implementing.
+3. If unresolved after one exchange, escalate to the user with both positions.
+
+Do not silently implement feedback you believe is wrong.
 
 ### From Team Peers
 
