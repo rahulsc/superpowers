@@ -94,10 +94,20 @@ For pipelined TDD, also require:
 
 ## Git Isolation and Worktree Lifecycle
 
-**Per-agent worktrees are mandatory.** Each implementer MUST be spawned with `isolation: "worktree"`. No exceptions unless the user explicitly provides an alternative.
+**Per-agent worktrees are mandatory.** Each implementer MUST work in an isolated worktree. No exceptions unless the user explicitly provides an alternative.
+
+**Claude Code:** Use `isolation: "worktree"` on the Agent tool — worktrees are created and cleaned up automatically.
+
+**Cursor / Codex / other platforms:** Create worktrees manually before dispatching each implementer:
+
+```bash
+git worktree add .worktrees/<implementer-name> -b <implementer-name>
+```
+
+Then point the implementer at the worktree path.
 
 **Lifecycle:**
-1. Each implementer gets their own worktree automatically via `isolation: "worktree"`
+1. Each implementer gets their own worktree (automatically via `isolation: "worktree"` in Claude Code, or manually created on other platforms)
 2. Implementers commit to their worktree's branch
 3. Lead records each implementer's worktree in state.yml under `worktree.implementers.<name>`
 4. After each wave's reviews pass, lead merges implementer branches into main worktree
@@ -218,7 +228,7 @@ digraph agent_team {
 6. **Create team** via `TeamCreate`
 7. **Create task list** — `TaskCreate` for each task, `TaskUpdate` to set `addBlockedBy` for cross-wave dependencies
 8. **Wave 0 (if QA in roster)** — spawn QA agent in lead's worktree, have them write tests for Wave 1 tasks
-9. **Spawn implementers** — one per task in wave 1, specialized by role, using agent definitions from team roster and `./implementer-prompt.md`. Each spawned with `isolation: "worktree"`
+9. **Spawn implementers** — one per task in wave 1, specialized by role, using agent definitions from team roster and `./implementer-prompt.md`. Each must have its own worktree (via `isolation: "worktree"` in Claude Code, or manually created on other platforms)
 
 ### Phase 2: Wave Execution
 
@@ -309,7 +319,7 @@ digraph agent_team {
 ## Team Lifecycle
 
 1. **Create** — `TeamCreate` at start of plan execution
-2. **Spawn** — specialists for wave 1 tasks, each with `isolation: "worktree"`
+2. **Spawn** — specialists for wave 1 tasks, each with its own worktree
 3. **Reuse** — message existing implementers with new tasks for subsequent waves
 4. **Shutdown** — `SendMessage` with `type: "shutdown_request"` to each implementer when all their work is reviewed
 5. **Delete** — `TeamDelete` after all members confirm shutdown

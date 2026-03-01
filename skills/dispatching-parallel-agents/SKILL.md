@@ -76,11 +76,20 @@ Each agent gets:
 
 Spawned agents need permission to act autonomously. Use `mode: "bypassPermissions"` so agents don't stall waiting for approval on every tool call.
 
-For file isolation, give each agent its own worktree via `isolation: "worktree"`. This prevents agents from overwriting each other's changes to shared files.
+For file isolation, give each agent its own worktree. This prevents agents from overwriting each other's changes to shared files.
+
+**Claude Code:** Use `isolation: "worktree"` on the Agent tool — worktrees are created automatically.
+
+**Cursor / Codex / other platforms:** Create worktrees manually before dispatching:
+
+```bash
+git worktree add .worktrees/agent-1 -b agent-1-fix
+git worktree add .worktrees/agent-2 -b agent-2-fix
+```
 
 ```javascript
 // Claude Code Agent tool — correct syntax
-mcp__claude_code__agent({
+Agent({
   prompt: "Fix agent-tool-abort.test.ts failures. ...",
   mode: "bypassPermissions",
   isolation: "worktree"
@@ -94,10 +103,10 @@ mcp__claude_code__agent({
 Call agents in the same response without awaiting between them — they run concurrently:
 
 ```javascript
-// All three dispatch simultaneously
-mcp__claude_code__agent({ prompt: "Fix agent-tool-abort.test.ts failures...", mode: "bypassPermissions", isolation: "worktree" })
-mcp__claude_code__agent({ prompt: "Fix batch-completion-behavior.test.ts failures...", mode: "bypassPermissions", isolation: "worktree" })
-mcp__claude_code__agent({ prompt: "Fix tool-approval-race-conditions.test.ts failures...", mode: "bypassPermissions", isolation: "worktree" })
+// All three dispatch simultaneously (Claude Code syntax)
+Agent({ prompt: "Fix agent-tool-abort.test.ts failures...", mode: "bypassPermissions", isolation: "worktree" })
+Agent({ prompt: "Fix batch-completion-behavior.test.ts failures...", mode: "bypassPermissions", isolation: "worktree" })
+Agent({ prompt: "Fix tool-approval-race-conditions.test.ts failures...", mode: "bypassPermissions", isolation: "worktree" })
 ```
 
 ### 5. Review and Integrate
@@ -157,7 +166,7 @@ Missing permissions: Agent stalls on every tool approval
 Set `mode: "bypassPermissions"` so agent can act autonomously
 
 No isolation: Agents overwrite each other's changes
-Set `isolation: "worktree"` for file-safe parallel work
+Use worktree isolation for file-safe parallel work
 
 ## When NOT to Use
 
