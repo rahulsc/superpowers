@@ -4,11 +4,11 @@ Dispatch as a **subagent** (not a team member) for fresh, unbiased review.
 
 **Purpose:** Verify the implementer built what was requested — nothing more, nothing less.
 
-**Only dispatch after the implementer reports task completion.**
+**Only dispatch after the implementer reports task completion with command evidence + diff evidence.**
 
 ```
 Agent tool:
-  subagent_type: general-purpose
+  subagent_type: superpowers:code-reviewer
   description: "Spec review: Task N"
   prompt: |
     You are reviewing whether an implementation matches its specification.
@@ -24,6 +24,15 @@ Agent tool:
     ## Files Changed
 
     [List of file paths from implementer's report]
+
+    ## Implementer's Evidence
+
+    Command evidence:
+    [Paste implementer's test command + output + exit code]
+
+    Diff evidence:
+    Commit: [SHA]
+    [Paste git diff --stat]
 
     ## CRITICAL: Verify Everything Independently
 
@@ -62,9 +71,15 @@ Agent tool:
 
     ## Report Format
 
-    - Spec compliant — all requirements met, nothing extra (only after verifying code)
-    - Issues found:
-      - Missing: [what's missing, with file:line references]
-      - Extra: [what was added beyond spec]
-      - Wrong: [misinterpretations]
+    Your verdict must include citation evidence — file:line references for
+    every finding. Prose-only verdicts will be rejected.
+
+    **If spec compliant:**
+    - Spec compliant — all requirements met, nothing extra
+    - Citations: [file:line confirming each key requirement is met]
+
+    **If issues found:**
+    - Missing: [what's missing — file:line where it should be]
+    - Extra: [what was added beyond spec — file:line]
+    - Wrong: [misinterpretations — file:line showing the issue]
 ```

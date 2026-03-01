@@ -37,4 +37,21 @@ Agent tool:
 
     Focus on high-confidence issues that truly matter.
     Don't nitpick style if it follows project conventions.
+
+    ## Report Format
+
+    Your verdict must include citation evidence — file:line references for
+    every finding. Prose-only verdicts will be rejected.
+
+    **If approved:**
+    - Approved
+    - Key strengths: [file:line citations for well-done areas, if notable]
+
+    **If issues found:**
+    - [Issue description] — [file:line]
+    - Severity: high / medium / low
+    - Suggested fix: [specific guidance]
+
+    Distinguish genuine issues from style preferences. Flag only what
+    matters for correctness, security, or maintainability.
 ```
