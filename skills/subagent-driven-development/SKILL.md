@@ -35,6 +35,8 @@ digraph when_to_use {
 - Two-stage review after each task: spec compliance first, then code quality
 - Faster iteration (no human-in-loop between tasks)
 
+**If plan has 4+ tasks with 2+ waves of parallelism**, consider **agent-team-driven-development** for parallel execution with persistent specialists instead.
+
 ## The Process
 
 ```dot
@@ -82,38 +84,14 @@ digraph process {
 }
 ```
 
-## Model Selection
+## Agent-Aware Dispatch
 
-Use the least powerful model that can handle each role to conserve cost and increase speed.
+When a team roster exists (from composing-teams), use the specified agent definition for implementer subagents instead of generic `general-purpose`:
 
-**Mechanical implementation tasks** (isolated functions, clear specs, 1-2 files): use a fast, cheap model. Most implementation tasks are mechanical when the plan is well-specified.
-
-**Integration and judgment tasks** (multi-file coordination, pattern matching, debugging): use a standard model.
-
-**Architecture, design, and review tasks**: use the most capable available model.
-
-**Task complexity signals:**
-- Touches 1-2 files with a complete spec → cheap model
-- Touches multiple files with integration concerns → standard model
-- Requires design judgment or broad codebase understanding → most capable model
-
-## Handling Implementer Status
-
-Implementer subagents report one of four statuses. Handle each appropriately:
-
-**DONE:** Proceed to spec compliance review.
-
-**DONE_WITH_CONCERNS:** The implementer completed the work but flagged doubts. Read the concerns before proceeding. If the concerns are about correctness or scope, address them before review. If they're observations (e.g., "this file is getting large"), note them and proceed to review.
-
-**NEEDS_CONTEXT:** The implementer needs information that wasn't provided. Provide the missing context and re-dispatch.
-
-**BLOCKED:** The implementer cannot complete the task. Assess the blocker:
-1. If it's a context problem, provide more context and re-dispatch with the same model
-2. If the task requires more reasoning, re-dispatch with a more capable model
-3. If the task is too large, break it into smaller pieces
-4. If the plan itself is wrong, escalate to the human
-
-**Never** ignore an escalation or force the same model to retry without changes. If the implementer said it's stuck, something needs to change.
+- If the task has an `Agent:` field, use that agent definition
+- If the roster specifies a model for the agent, use that model
+- If no model is specified or `model: inherit`, use the most powerful available model
+- Reviewer subagents still use their standard definitions (`general-purpose` for spec, `superpowers:code-reviewer` for quality)
 
 ## Prompt Templates
 
@@ -126,7 +104,7 @@ Implementer subagents report one of four statuses. Handle each appropriately:
 ```
 You: I'm using Subagent-Driven Development to execute this plan.
 
-[Read plan file once: docs/superpowers/plans/feature-plan.md]
+[Read plan file once: docs/plans/feature-plan.md]
 [Extract all 5 tasks with full text and context]
 [Create TodoWrite with all tasks]
 
@@ -273,3 +251,4 @@ Done!
 
 **Alternative workflow:**
 - **superpowers:executing-plans** - Use for parallel session instead of same-session execution
+- **superpowers:agent-team-driven-development** - Use for parallel execution with persistent specialist agents across waves (better for 4+ tasks with parallelism)
