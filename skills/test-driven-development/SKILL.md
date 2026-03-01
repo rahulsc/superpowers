@@ -34,7 +34,7 @@ Thinking "skip TDD just this once"? Stop. That's rationalization.
 NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
 ```
 
-Write code before the test? Delete it. Start over.
+Write code before the test? Delete it and start over — unless you've spent significant time (see graduated response below).
 
 **No exceptions:**
 - Don't keep it as "reference"
@@ -43,6 +43,11 @@ Write code before the test? Delete it. Start over.
 - Delete means delete
 
 Implement fresh from tests. Period.
+
+**Graduated response for large work:**
+- Under ~1 hour: delete without question
+- 1-3+ hours: pause, consult the user — explain what happened and get agreement before deleting or recovering
+- This isn't an excuse to avoid TDD; it's recognition that humans make judgment calls on large sunk costs
 
 ## Red-Green-Refactor
 
@@ -114,8 +119,24 @@ Vague name, tests mock not code
 
 **MANDATORY. Never skip.**
 
+Run your test suite with the appropriate command:
+
 ```bash
+# JavaScript / TypeScript
 npm test path/to/test.test.ts
+# or: npx jest path/to/test.test.ts
+
+# Python
+pytest tests/test_feature.py -v
+
+# Rust
+cargo test test_name
+
+# Go
+go test ./... -run TestFeatureName
+
+# Ruby
+bundle exec rspec spec/feature_spec.rb
 ```
 
 Confirm:
@@ -169,9 +190,7 @@ Don't add features, refactor other code, or "improve" beyond the test.
 
 **MANDATORY.**
 
-```bash
-npm test path/to/test.test.ts
-```
+Run the same command used in Verify RED.
 
 Confirm:
 - Test passes
@@ -184,12 +203,19 @@ Confirm:
 
 ### REFACTOR - Clean Up
 
-After green only:
-- Remove duplication
-- Improve names
-- Extract helpers
+After green only. Common refactors:
 
-Keep tests green. Don't add behavior.
+| Smell | Refactor |
+|---|---|
+| Duplicated logic in multiple tests | Extract shared setup or factory helper |
+| Function doing too many things | Extract sub-functions with descriptive names |
+| Magic numbers/strings in test | Name the constants |
+| Method name too generic | Rename to reflect intent (`process()` → `validateAndEnqueue()`) |
+| Long parameter list | Group into options object |
+
+Keep tests green throughout. Run tests after each refactor step.
+
+Don't add behavior. If you think of a new edge case, add a new failing test first (RED), then implement.
 
 ### Repeat
 
@@ -261,7 +287,7 @@ Tests-first force edge case discovery before implementing. Tests-after verify yo
 | "I'll test after" | Tests passing immediately prove nothing. |
 | "Tests after achieve same goals" | Tests-after = "what does this do?" Tests-first = "what should this do?" |
 | "Already manually tested" | Ad-hoc ≠ systematic. No record, can't re-run. |
-| "Deleting X hours is wasteful" | Sunk cost fallacy. Keeping unverified code is technical debt. |
+| "Deleting X hours is wasteful" | Under 1hr: delete without question. Longer: consult the user before deciding. |
 | "Keep as reference, write tests first" | You'll adapt it. That's testing after. Delete means delete. |
 | "Need to explore first" | Fine. Throw away exploration, start with TDD. |
 | "Test hard = design unclear" | Listen to test. Hard to test = hard to use. |
@@ -281,11 +307,11 @@ Tests-first force edge case discovery before implementing. Tests-after verify yo
 - "Tests after achieve the same purpose"
 - "It's about spirit not ritual"
 - "Keep as reference" or "adapt existing code"
-- "Already spent X hours, deleting is wasteful"
+- "Already spent significant hours, deleting is wasteful" (under 1hr: delete; longer: consult the user)
 - "TDD is dogmatic, I'm being pragmatic"
 - "This is different because..."
 
-**All of these mean: Delete code. Start over with TDD.**
+**All of these mean: Delete code. Start over with TDD.** (For significant multi-hour work: consult the user first.)
 
 ## Example: Bug Fix
 
@@ -354,9 +380,104 @@ Bug found? Write failing test reproducing it. Follow TDD cycle. Test proves fix 
 
 Never fix bugs without a test.
 
+## Two TDD Modes
+
+TDD works in two configurations depending on whether you are working solo or in an agent team.
+
+| Mode | Who writes tests | Who implements | When |
+|---|---|---|---|
+| **Solo TDD** | Same agent | Same agent | Single-agent execution (executing-plans, subagent-driven) |
+| **Pipelined TDD** | QA agent (one wave ahead) | Implementer agents | Team execution (agent-team-driven) |
+
+### Solo TDD
+
+Standard Red-Green-Refactor as described above. One agent writes the failing test, watches it fail, implements, watches it pass.
+
+### Pipelined TDD
+
+QA agents write tests one wave ahead of implementers.
+
+```dot
+digraph pipelined_tdd {
+    rankdir=LR;
+    node [shape=box];
+
+    w0 [label="Wave 0\nQA writes tests\nfor Wave 1", style=filled, fillcolor="#ccccff"];
+    w1i [label="Wave 1\nImplementers\nrun tests RED\nthen implement GREEN", style=filled, fillcolor="#ccffcc"];
+    w1q [label="Wave 1\nQA writes tests\nfor Wave 2", style=filled, fillcolor="#ccccff"];
+    w2i [label="Wave 2\nImplementers\nrun tests RED\nthen implement GREEN", style=filled, fillcolor="#ccffcc"];
+
+    w0 -> w1i;
+    w0 -> w1q [style=dashed, label="parallel"];
+    w1i -> w1q [style=invis];
+    w1q -> w2i;
+}
+```
+
+**QA agent responsibilities:**
+- Write tests in the lead's worktree (not implementer worktrees — avoids merge conflicts)
+- Write tests that fail for the right reason against the current codebase
+- Hand off test files to implementers with the wave assignment
+
+**Implementer responsibilities in pipelined mode:**
+- Run QA's tests first — confirm RED
+- Implement until GREEN
+- Provide RED evidence + GREEN evidence in completion report
+
+Pipelined TDD only activates when a QA agent is in the team roster.
+
+## Plan-Level Test Expectations
+
+When plans are created with `superpowers:writing-plans`, each task must include test expectations. This makes TDD impossible to skip — implementers know exactly what to verify before starting.
+
+**Required per task (3-5 lines):**
+```markdown
+## Test Expectations
+- Test: <what to test — one behavior per test>
+- Expected red failure: <exact failure message or assertion that fails>
+- Expected green: <what passes after minimal implementation>
+```
+
+**Example:**
+```markdown
+## Test Expectations
+- Test: `POST /api/users` with valid payload returns 201 + user object
+- Expected red failure: `TypeError: Cannot read properties of undefined (reading 'create')` (route not implemented)
+- Expected green: `{"id": "uuid", "email": "test@example.com"}` with status 201
+```
+
+If a task's test expectations are missing or vague, implementers must clarify with the plan author before starting.
+
+## Execution-Level Evidence
+
+Before marking any implementation task complete, you must provide:
+
+**RED evidence** — proof the test failed for the right reason:
+```
+Command: npm test src/api/users.test.ts
+Exit code: 1
+Output (last 20 lines):
+  FAIL src/api/users.test.ts
+  ● POST /api/users › returns 201 with user object
+    TypeError: Cannot read properties of undefined (reading 'create')
+      at Object.<anonymous> (src/api/users.test.ts:14:5)
+```
+
+**GREEN evidence** — proof the test passes after implementation:
+```
+Command: npm test src/api/users.test.ts
+Exit code: 0
+Output:
+  PASS src/api/users.test.ts
+  ✓ POST /api/users returns 201 with user object (23ms)
+  Test Suites: 1 passed, 1 total
+```
+
+Any completion report missing RED + GREEN evidence is rejected. See `superpowers:verification-before-completion` for the canonical evidence format used across all execution skills.
+
 ## Testing Anti-Patterns
 
-When adding mocks or test utilities, read @testing-anti-patterns.md to avoid common pitfalls:
+When adding mocks or test utilities, read `skills/test-driven-development/testing-anti-patterns.md` to avoid common pitfalls:
 - Testing mock behavior instead of real behavior
 - Adding test-only methods to production classes
 - Mocking without understanding dependencies
