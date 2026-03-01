@@ -100,7 +100,7 @@ You: [Fix progress indicators]
 ## Team-Aware Review
 
 **Roster-aware reviewer dispatch:**
-When a team roster (from composing-teams) includes reviewer agents (e.g., `reviewer-architecture`, `reviewer-security`), use those agent definitions for review dispatch instead of the default `superpowers:code-reviewer`.
+When a team roster (from composing-teams) includes reviewer agents (e.g., `architect`, `security-reviewer`), use those agent definitions for review dispatch instead of the default `superpowers:code-reviewer`.
 
 **Peer review in teams:**
 When operating in a team context, specialists can peer-review each other's work:

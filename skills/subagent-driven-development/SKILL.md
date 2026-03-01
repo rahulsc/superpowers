@@ -138,7 +138,7 @@ When a team roster exists (from composing-teams), use the specified agent defini
 
 ## Review Tiering
 
-For simple, low-risk tasks: light review (spec compliance only, skip code quality round).
+For simple, low-risk tasks: light review (single combined pass checking both spec compliance and code quality in one round).
 For default tasks: standard two-stage review (spec compliance, then code quality).
 For auth/payment/data tasks: critical — add a security-focused review pass after code quality.
 
@@ -264,7 +264,7 @@ Done!
 
 **Never:**
 - Start implementation on main/master branch without explicit user consent
-- Skip reviews (spec compliance OR code quality) — **NEVER rationalize skipping because a task "seems straightforward"**
+- Skip both review stages entirely — for simple tasks use a combined single-pass review, but always review something
 - Proceed with unfixed issues
 - Dispatch multiple implementation subagents in parallel (conflicts)
 - Make subagent read plan file (provide full text instead)

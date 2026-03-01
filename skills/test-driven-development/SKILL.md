@@ -45,8 +45,8 @@ Write code before the test? Delete it and start over — unless you've spent sig
 Implement fresh from tests. Period.
 
 **Graduated response for large work:**
-- Under ~1 hour: delete without question
-- 1-3+ hours: pause, consult the user — explain what happened and get agreement before deleting or recovering
+- Under 1 hour: delete without question
+- 1–3 hours: pause, consult the user — explain what happened and get agreement before deleting or recovering
 - This isn't an excuse to avoid TDD; it's recognition that humans make judgment calls on large sunk costs
 
 ## Red-Green-Refactor
@@ -287,7 +287,7 @@ Tests-first force edge case discovery before implementing. Tests-after verify yo
 | "I'll test after" | Tests passing immediately prove nothing. |
 | "Tests after achieve same goals" | Tests-after = "what does this do?" Tests-first = "what should this do?" |
 | "Already manually tested" | Ad-hoc ≠ systematic. No record, can't re-run. |
-| "Deleting X hours is wasteful" | Under 1hr: delete without question. Longer: consult the user before deciding. |
+| "Deleting X hours is wasteful" | Under 1 hour: delete without question. Longer: consult the user before deciding. |
 | "Keep as reference, write tests first" | You'll adapt it. That's testing after. Delete means delete. |
 | "Need to explore first" | Fine. Throw away exploration, start with TDD. |
 | "Test hard = design unclear" | Listen to test. Hard to test = hard to use. |
@@ -307,7 +307,7 @@ Tests-first force edge case discovery before implementing. Tests-after verify yo
 - "Tests after achieve the same purpose"
 - "It's about spirit not ritual"
 - "Keep as reference" or "adapt existing code"
-- "Already spent significant hours, deleting is wasteful" (under 1hr: delete; longer: consult the user)
+- "Already spent significant hours, deleting is wasteful" (under 1 hour: delete; longer: consult the user)
 - "TDD is dogmatic, I'm being pragmatic"
 - "This is different because..."
 
