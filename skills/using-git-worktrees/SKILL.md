@@ -9,7 +9,7 @@ description: Use when starting feature work that needs isolation from the curren
 
 Git worktrees create isolated workspaces sharing the same repository, allowing work on multiple branches simultaneously without switching.
 
-**Core principle:** Delegate creation to Claude Code's native `EnterWorktree` tool, then add safety verification on top.
+**Core principle:** Delegate creation to the platform's native worktree tool when available, then add safety verification on top.
 
 **Announce at start:** "I'm using the using-git-worktrees skill to set up an isolated workspace."
 
@@ -32,20 +32,29 @@ If skipping, note it explicitly so downstream skills know why `worktree.main.pat
 
 ## Creating the Worktree
 
-Use Claude Code's native `EnterWorktree` tool — do not reimplement creation logic:
+**Claude Code:** Use the native `EnterWorktree` tool:
 
 ```
 EnterWorktree(name: "<feature-name>")
 ```
 
-The native tool handles:
-- Directory selection and naming
-- Branch creation
-- gitignore verification
+**Cursor / Codex / other platforms:** If no native worktree tool is available, create manually:
+
+```bash
+git worktree add .worktrees/<feature-name> -b <feature-name>
+cd .worktrees/<feature-name>
+```
+
+Verify the worktree directory is gitignored before creating:
+```bash
+git check-ignore -q .worktrees 2>/dev/null || echo ".worktrees/" >> .gitignore
+```
+
+The native tool (when available) handles directory selection, branch creation, and gitignore verification automatically.
 
 ## After Creation
 
-Once `EnterWorktree` returns:
+Once the worktree is created:
 
 ### 1. Check CLAUDE.md Preferences
 
@@ -124,7 +133,13 @@ When running as a lead with multiple implementers (agent-team-driven-development
 
 ### Per-Implementer Worktrees
 
-Each implementer gets their own worktree via `isolation: "worktree"` in their spawn configuration. The lead does **not** manually create these — they are created automatically when each agent spawns.
+**Claude Code:** Each implementer gets their own worktree automatically via `isolation: "worktree"` in their spawn configuration.
+
+**Cursor / Codex / other platforms:** The lead creates worktrees manually for each implementer before dispatching:
+
+```bash
+git worktree add .worktrees/<implementer-name> -b <implementer-name>
+```
 
 After each implementer's worktree is created, record it in state.yml:
 
