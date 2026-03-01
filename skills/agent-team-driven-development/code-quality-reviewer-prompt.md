@@ -6,7 +6,7 @@ Dispatch as a **subagent** (not a team member) for unbiased quality review.
 
 **Only dispatch after spec compliance review passes.**
 
-```
+```yaml
 Agent tool:
   subagent_type: superpowers:code-reviewer
   description: "Code quality review: Task N"
