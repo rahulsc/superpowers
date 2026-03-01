@@ -37,17 +37,40 @@ BEFORE claiming any status or expressing satisfaction:
 Skip any step = lying, not verifying
 ```
 
+## Evidence Format
+
+All verification claims must include one or more of these evidence types. Reports without required evidence are rejected with: **"Missing evidence. Required: [type]."**
+
+| Type | Use when | Must contain |
+|------|----------|-------------|
+| **Command** | Running tests, builds, linters | Command, verbatim output (last 50 lines), exit code |
+| **Citation** | Spec/requirements review | file:line reference, code excerpt, verdict per requirement |
+| **Diff** | Reporting implementation complete | `git diff --stat`, commit SHA |
+
+**Which context requires which type:**
+
+| Situation | Required evidence |
+|-----------|-----------------|
+| "Tests pass" | Command (test runner output) |
+| "Build succeeded" | Command (build output, exit 0) |
+| "Requirements met" | Citation (each requirement checked) |
+| "Agent completed task" | Diff (VCS changes confirmed) + Command (test output) |
+| "Spec compliant" | Citation (file:line per spec item) |
+| "Implementation done" | Diff + Command |
+
+**Re-review loop bound:** After 3 rejection cycles on the same claim, escalate to the user with the full rejection history rather than looping again.
+
 ## Common Failures
 
-| Claim | Requires | Not Sufficient |
+| Claim | Required evidence | Not sufficient |
 |-------|----------|----------------|
-| Tests pass | Test command output: 0 failures | Previous run, "should pass" |
-| Linter clean | Linter output: 0 errors | Partial check, extrapolation |
-| Build succeeds | Build command: exit 0 | Linter passing, logs look good |
-| Bug fixed | Test original symptom: passes | Code changed, assumed fixed |
-| Regression test works | Red-green cycle verified | Test passes once |
-| Agent completed | VCS diff shows changes | Agent reports "success" |
-| Requirements met | Line-by-line checklist | Tests passing |
+| Tests pass | Command: test output, 0 failures | Previous run, "should pass" |
+| Linter clean | Command: linter output, 0 errors | Partial check, extrapolation |
+| Build succeeds | Command: build output, exit 0 | Linter passing, logs look good |
+| Bug fixed | Command: original symptom now passes | Code changed, assumed fixed |
+| Regression test works | Command: red-green cycle verified | Test passes once |
+| Agent completed | Diff: VCS changes + Command: tests pass | Agent reports "success" |
+| Requirements met | Citation: line-by-line per requirement | Tests passing |
 
 ## Red Flags - STOP
 
@@ -101,18 +124,33 @@ Skip any step = lying, not verifying
 
 **Agent delegation:**
 ```
-✅ Agent reports success → Check VCS diff → Verify changes → Report actual state
-❌ Trust agent report
+✅ Agent reports success → Check git diff --stat → Verify commit SHA → Run tests → Report actual state
+   Evidence: Diff (VCS changes) + Command (test output)
+❌ Trust agent report without diff or test evidence
 ```
 
 ## Why This Matters
 
-From 24 failure memories:
+From observed failure patterns:
 - Users have reported "I don't believe you" - trust broken
 - Undefined functions shipped - would crash
 - Missing requirements shipped - incomplete features
 - Time wasted on false completion → redirect → rework
 - Violates: "Honesty is a core value. If you lie, you'll be replaced."
+
+## State Integration
+
+Verification results may optionally be recorded in `.superpowers/state.yml` at key milestones:
+
+```yaml
+verification:
+  last_run: 2026-03-01T14:22:00Z
+  task: 3
+  result: pass  # pass | fail
+  evidence_type: command
+```
+
+This allows session-resume to know the last verified state without re-running all checks.
 
 ## When To Apply
 
