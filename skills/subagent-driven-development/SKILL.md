@@ -9,7 +9,11 @@ Execute plan by dispatching fresh subagent per task, with two-stage review after
 
 **Why subagents:** You delegate tasks to specialized agents with isolated context. By precisely crafting their instructions and context, you ensure they stay focused and succeed at their task. They should never inherit your session's context or history — you construct exactly what they need. This also preserves your own context for coordination work.
 
+**Announce at start:** "I'm using the subagent-driven-development skill to execute tasks with independent subagents."
+
 **Core principle:** Fresh subagent per task + two-stage review (spec then quality) = high quality, fast iteration
+
+**Subagent lifecycle:** Each task gets a fresh subagent. The subagent persists within that task (including any re-review loops) but is not reused across tasks. fresh per task, persistent within task.
 
 ## When to Use
 
@@ -37,6 +41,8 @@ digraph when_to_use {
 - Two-stage review after each task: spec compliance first, then code quality
 - Faster iteration (no human-in-loop between tasks)
 
+**If plan has 4+ tasks with 2+ waves of parallelism**, consider **agent-team-driven-development** for parallel execution with persistent specialists instead.
+
 ## The Process
 
 ```dot
@@ -55,15 +61,15 @@ digraph process {
         "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" [shape=box];
         "Code quality reviewer subagent approves?" [shape=diamond];
         "Implementer subagent fixes quality issues" [shape=box];
-        "Mark task complete in TodoWrite" [shape=box];
+        "Mark task complete with TaskUpdate" [shape=box];
     }
 
-    "Read plan, extract all tasks with full text, note context, create TodoWrite" [shape=box];
+    "Read plan, extract all tasks with full text, note context, create tasks with TaskCreate" [shape=box];
     "More tasks remain?" [shape=diamond];
-    "Dispatch final code reviewer subagent for entire implementation" [shape=box];
+    "Dispatch final code reviewer subagent (whole feature, all tasks)" [shape=box];
     "Use superpowers:finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
 
-    "Read plan, extract all tasks with full text, note context, create TodoWrite" -> "Dispatch implementer subagent (./implementer-prompt.md)";
+    "Read plan, extract all tasks with full text, note context, create tasks with TaskCreate" -> "Dispatch implementer subagent (./implementer-prompt.md)";
     "Dispatch implementer subagent (./implementer-prompt.md)" -> "Implementer subagent asks questions?";
     "Implementer subagent asks questions?" -> "Answer questions, provide context" [label="yes"];
     "Answer questions, provide context" -> "Dispatch implementer subagent (./implementer-prompt.md)";
@@ -76,46 +82,71 @@ digraph process {
     "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" -> "Code quality reviewer subagent approves?";
     "Code quality reviewer subagent approves?" -> "Implementer subagent fixes quality issues" [label="no"];
     "Implementer subagent fixes quality issues" -> "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" [label="re-review"];
-    "Code quality reviewer subagent approves?" -> "Mark task complete in TodoWrite" [label="yes"];
-    "Mark task complete in TodoWrite" -> "More tasks remain?";
+    "Code quality reviewer subagent approves?" -> "Mark task complete with TaskUpdate" [label="yes"];
+    "Mark task complete with TaskUpdate" -> "More tasks remain?";
     "More tasks remain?" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="yes"];
-    "More tasks remain?" -> "Dispatch final code reviewer subagent for entire implementation" [label="no"];
-    "Dispatch final code reviewer subagent for entire implementation" -> "Use superpowers:finishing-a-development-branch";
+    "More tasks remain?" -> "Dispatch final code reviewer subagent (whole feature, all tasks)" [label="no"];
+    "Dispatch final code reviewer subagent (whole feature, all tasks)" -> "Use superpowers:finishing-a-development-branch";
 }
 ```
 
-## Model Selection
+## Evidence Requirements
 
-Use the least powerful model that can handle each role to conserve cost and increase speed.
+Implementers MUST provide evidence before the controller marks a task complete. See `superpowers:verification-before-completion` for the canonical evidence format.
 
-**Mechanical implementation tasks** (isolated functions, clear specs, 1-2 files): use a fast, cheap model. Most implementation tasks are mechanical when the plan is well-specified.
+**Required per task:**
 
-**Integration and judgment tasks** (multi-file coordination, pattern matching, debugging): use a standard model.
+| Evidence | Type | Contents |
+|----------|------|---------|
+| Test output | Command | Test command, verbatim output, exit code |
+| Commit | Diff | `git diff --stat`, commit SHA |
 
-**Architecture, design, and review tasks**: use the most capable available model.
+**TDD gate:** Before marking implementation complete, verify RED evidence (test fails for right reason) then GREEN evidence (test passes). Both must exist. See `superpowers:test-driven-development` for Solo TDD mode details.
 
-**Task complexity signals:**
-- Touches 1-2 files with a complete spec → cheap model
-- Touches multiple files with integration concerns → standard model
-- Requires design judgment or broad codebase understanding → most capable model
+**Rejection rule:** Any completion report missing command + diff evidence is rejected: "Missing evidence. Required: command (test output) + diff (commit SHA)."
 
-## Handling Implementer Status
+## State Integration
 
-Implementer subagents report one of four statuses. Handle each appropriately:
+After each task completes, update `.superpowers/state.yml`:
 
-**DONE:** Proceed to spec compliance review.
+```yaml
+plan:
+  completed_tasks: [1, 2, 3]  # append task number
+```
 
-**DONE_WITH_CONCERNS:** The implementer completed the work but flagged doubts. Read the concerns before proceeding. If the concerns are about correctness or scope, address them before review. If they're observations (e.g., "this file is getting large"), note them and proceed to review.
+On session start (or cold resume), read state.yml to find `plan.completed_tasks` and skip already-completed tasks. This enables cross-session continuity without re-executing work.
 
-**NEEDS_CONTEXT:** The implementer needs information that wasn't provided. Provide the missing context and re-dispatch.
+If using directory-based plans (`docs/plans/<project>/tasks/`), load individual task files rather than the full plan — approximately 2.7x token savings for large plans.
 
-**BLOCKED:** The implementer cannot complete the task. Assess the blocker:
-1. If it's a context problem, provide more context and re-dispatch with the same model
-2. If the task requires more reasoning, re-dispatch with a more capable model
-3. If the task is too large, break it into smaller pieces
-4. If the plan itself is wrong, escalate to the human
+## Re-Review Loop Bound
 
-**Never** ignore an escalation or force the same model to retry without changes. If the implementer said it's stuck, something needs to change.
+After 3 rejection cycles on the same task (spec or quality), stop looping and escalate:
+- Report to the user with the full rejection history
+- Ask whether to continue, reassign, or adjust the spec
+- Do NOT silently loop a 4th time
+
+## Pre-Flight Context Check
+
+Before dispatching each new implementer subagent, check context utilization. If below ~50% context remaining:
+- Run `/compact` to compress conversation history
+- Then dispatch the subagent
+
+Skipping this causes subagent failures mid-task when the parent context fills.
+
+## Agent-Aware Dispatch
+
+When a team roster exists (from composing-teams), use the specified agent definition for implementer subagents instead of generic `general-purpose`:
+
+- If the task has an `Agent:` field, use that agent definition
+- If the roster specifies a model for the agent, use that model
+- If no model is specified or `model: inherit`, use the most powerful available model
+- Reviewer subagents still use their standard definitions (`general-purpose` for spec, `superpowers:code-reviewer` for quality)
+
+## Review Tiering
+
+For simple, low-risk tasks: light review (single combined pass checking both spec compliance and code quality in one round).
+For default tasks: standard two-stage review (spec compliance, then code quality).
+For auth/payment/data tasks: critical — add a security-focused review pass after code quality.
 
 ## Prompt Templates
 
@@ -128,9 +159,9 @@ Implementer subagents report one of four statuses. Handle each appropriately:
 ```
 You: I'm using Subagent-Driven Development to execute this plan.
 
-[Read plan file once: docs/superpowers/plans/feature-plan.md]
+[Read plan file once: docs/plans/feature-plan.md]
 [Extract all 5 tasks with full text and context]
-[Create TodoWrite with all tasks]
+[Create tasks with TaskCreate]
 
 Task 1: Hook installation script
 
@@ -154,7 +185,9 @@ Spec reviewer: ✅ Spec compliant - all requirements met, nothing extra
 [Get git SHAs, dispatch code quality reviewer]
 Code reviewer: Strengths: Good test coverage, clean. Issues: None. Approved.
 
-[Mark Task 1 complete]
+[Verify evidence: Command (5/5 tests pass, exit 0) + Diff (SHA: abc1234, 3 files changed)]
+[Update state.yml: plan.completed_tasks: [1]]
+[Mark Task 1 complete with TaskUpdate]
 
 Task 2: Recovery modes
 
@@ -188,12 +221,14 @@ Implementer: Extracted PROGRESS_INTERVAL constant
 [Code reviewer reviews again]
 Code reviewer: ✅ Approved
 
-[Mark Task 2 complete]
+[Verify evidence: Command (8/8 tests pass, exit 0) + Diff (SHA: def5678, 4 files changed)]
+[Update state.yml: plan.completed_tasks: [1, 2]]
+[Mark Task 2 complete with TaskUpdate]
 
 ...
 
 [After all tasks]
-[Dispatch final code-reviewer]
+[Dispatch final code-reviewer: review entire feature, all tasks, all commits]
 Final reviewer: All requirements met, ready to merge
 
 Done!
@@ -235,7 +270,7 @@ Done!
 
 **Never:**
 - Start implementation on main/master branch without explicit user consent
-- Skip reviews (spec compliance OR code quality)
+- Skip both review stages entirely — for simple tasks use a combined single-pass review, but always review something
 - Proceed with unfixed issues
 - Dispatch multiple implementation subagents in parallel (conflicts)
 - Make subagent read plan file (provide full text instead)
@@ -246,6 +281,8 @@ Done!
 - Let implementer self-review replace actual review (both are needed)
 - **Start code quality review before spec compliance is ✅** (wrong order)
 - Move to next task while either review has open issues
+- Mark task complete without command evidence (test output) + diff evidence (commit SHA)
+- Mark task complete without RED + GREEN TDD evidence
 
 **If subagent asks questions:**
 - Answer clearly and completely
@@ -270,8 +307,11 @@ Done!
 - **superpowers:requesting-code-review** - Code review template for reviewer subagents
 - **superpowers:finishing-a-development-branch** - Complete development after all tasks
 
+**REQUIRED:** After all tasks are complete, invoke `superpowers:finishing-a-development-branch` to handle merge/PR/cleanup. Do not skip this step.
+
 **Subagents should use:**
 - **superpowers:test-driven-development** - Subagents follow TDD for each task
 
 **Alternative workflow:**
 - **superpowers:executing-plans** - Use for parallel session instead of same-session execution
+- **superpowers:agent-team-driven-development** - Use for parallel execution with persistent specialist agents across waves (better for 4+ tasks with parallelism)

@@ -124,7 +124,7 @@ Skills check these fields before proceeding. See `design.md` Section 3 for full 
 | composing-teams | `design.approved == true`, `worktree.main.path` accessible |
 | writing-plans | `design.approved == true`, worktree accessible, `team.roster` if from composing-teams |
 | any executor | `plan.path` accessible, `plan.status == pending`, worktree accessible |
-| finishing | `plan.completed_tasks` covers all tasks, `worktree.repo_root` exists, `implementers` empty (team mode) |
+| finishing | `plan.completed_tasks` covers all tasks, `worktree.main.repo_root` exists, `worktree.implementers` empty (team mode) |
 
 ## Schema Migration
 

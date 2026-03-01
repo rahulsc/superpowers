@@ -9,7 +9,7 @@ Each project gets its own subdirectory under `docs/plans/`. Files within the dir
 
 ## Directory Structure
 
-```
+```text
 docs/plans/
 └── <project>/
     ├── design.md          # brainstorming output (never overwritten)
@@ -71,7 +71,7 @@ plan:
 
 On cold start (new session), the session-start hook reads `state.yml`, finds `plan.path`, and the executor can locate individual task files by convention:
 
-```
+```text
 docs/plans/my-feature/tasks/01-*.md
 docs/plans/my-feature/tasks/02-*.md
 ...

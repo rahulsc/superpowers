@@ -1,6 +1,6 @@
 ---
 name: finishing-a-development-branch
-description: Use when implementation is complete, all tests pass, and you need to decide how to integrate the work — guides completion of development work by presenting structured options for merge, PR, or cleanup
+description: Use when implementation is complete, all tests pass, and you need to decide how to integrate the work - guides completion of development work by presenting structured options for merge, PR, or cleanup
 ---
 
 # Finishing a Development Branch
@@ -9,29 +9,18 @@ description: Use when implementation is complete, all tests pass, and you need t
 
 Guide completion of development work by presenting clear options and handling chosen workflow.
 
-**Core principle:** Verify tests → Shutdown team → Present options → Execute choice → Update state → Clean up.
+**Core principle:** Verify tests → Present options → Execute choice → Clean up.
 
 **Announce at start:** "I'm using the finishing-a-development-branch skill to complete this work."
 
 ## The Process
 
-### Step 1: Shutdown Agent Team (if applicable)
-
-If this work was done by an agent team, shut down all specialists BEFORE merging:
-
-1. Send `shutdown_request` via SendMessage to each implementer
-2. Wait for all to confirm shutdown
-3. `TeamDelete` after all members confirm
-4. Verify all implementer worktrees are removed (their branches already merged in prior waves)
-
-**Skip this step** if no agent team was used (solo or subagent-driven execution).
-
-### Step 2: Verify Tests
+### Step 1: Verify Tests
 
 **Before presenting options, verify tests pass:**
 
 ```bash
-# Run from the main worktree (not an implementer worktree)
+# Run project's test suite
 npm test / cargo test / pytest / go test ./...
 ```
 
@@ -44,19 +33,20 @@ Tests failing (<N> failures). Must fix before completing:
 Cannot proceed with merge/PR until tests pass.
 ```
 
-Stop. Don't proceed to Step 3.
+Stop. Don't proceed to Step 2.
 
-**If tests pass:** Continue to Step 3.
+**If tests pass:** Continue to Step 2.
 
-### Step 3: Determine Base Branch
+### Step 2: Determine Base Branch
 
 ```bash
+# Try common base branches
 git merge-base HEAD main 2>/dev/null || git merge-base HEAD master 2>/dev/null
 ```
 
-Or ask: "This branch split from main — is that correct?"
+Or ask: "This branch split from main - is that correct?"
 
-### Step 4: Present Options
+### Step 3: Present Options
 
 Present exactly these 4 options:
 
@@ -71,9 +61,9 @@ Implementation complete. What would you like to do?
 Which option?
 ```
 
-**Don't add explanation** — keep options concise.
+**Don't add explanation** - keep options concise.
 
-### Step 5: Execute Choice
+### Step 4: Execute Choice
 
 #### Option 1: Merge Locally
 
@@ -94,7 +84,7 @@ git merge <feature-branch>
 git branch -d <feature-branch>
 ```
 
-Then: Cleanup worktree (Step 6)
+Then: Cleanup worktree (Step 5)
 
 #### Option 2: Push and Create PR
 
@@ -113,7 +103,7 @@ EOF
 )"
 ```
 
-**Keep the worktree** — do not remove it. The branch is still active.
+Then: Cleanup worktree (Step 5)
 
 #### Option 3: Keep As-Is
 
@@ -123,140 +113,100 @@ Report: "Keeping branch <name>. Worktree preserved at <path>."
 
 #### Option 4: Discard
 
-**Confirm first using AskUserQuestion:**
-
+**Confirm first:**
 ```
-Ask: "This will permanently delete branch <name> and all its commits
-(<commit-list>). The worktree at <path> will also be removed. Are you sure?"
+This will permanently delete:
+- Branch <name>
+- All commits: <commit-list>
+- Worktree at <path>
+
+Type 'discard' to confirm.
 ```
 
-Wait for explicit confirmation before proceeding.
+Wait for exact confirmation.
 
 If confirmed:
 ```bash
-# IMPORTANT: cd to repo root FIRST (from state.yml worktree.main.repo_root)
-# Never run worktree remove from inside the worktree being removed
-cd <worktree.main.repo_root>
-
+git checkout <base-branch>
 git branch -D <feature-branch>
 ```
 
-Then: Cleanup worktree (Step 6)
+Then: Cleanup worktree (Step 5)
 
-### Step 6: Cleanup Worktree
+### Step 5: Cleanup Worktree
 
-**Only for Options 1 and 4** (merge and discard). Skip for Options 2 and 3.
+**For Options 1, 2, 4:**
 
-**CRITICAL — cd to repo root first:**
-
+Check if in worktree:
 ```bash
-# Get repo root from state.yml (worktree.main.repo_root)
-# or fall back to:
-cd $(git -C <worktree-path> rev-parse --show-toplevel)
+git worktree list | grep $(git branch --show-current)
 ```
 
-**Never run worktree remove from inside the worktree being removed.** This causes the CWD to disappear mid-command.
-
-**Detect cleanup method:**
-
+If yes:
 ```bash
-git worktree list | grep <worktree-path>
+git worktree remove <worktree-path>
 ```
 
-If the worktree was created by **native EnterWorktree tool:** Claude Code may handle cleanup automatically on session exit. Check whether the worktree still exists before running manual cleanup:
-
-```bash
-# Only remove if still present
-if git worktree list | grep -q "<worktree-path>"; then
-  git worktree remove "<worktree-path>"
-fi
-```
-
-If the worktree was created **manually** (`git worktree add`):
-
-```bash
-git worktree remove "<worktree-path>"
-```
-
-### Step 7: Update State
-
-After completing the chosen option, write to `.superpowers/state.yml`:
-
-```yaml
-phase: idle
-plan:
-  status: executed
-# Clear worktree entries:
-worktree:
-  main: null
-  implementers: {}
-# Clear team if applicable:
-team: null
-```
-
-This signals to any future session that no active work is in progress.
+**For Option 3:** Keep worktree.
 
 ## Quick Reference
 
 | Option | Merge | Push | Keep Worktree | Cleanup Branch |
 |--------|-------|------|---------------|----------------|
-| 1. Merge locally | ✓ | — | — | ✓ |
-| 2. Create PR | — | ✓ | ✓ | — |
-| 3. Keep as-is | — | — | ✓ | — |
-| 4. Discard | — | — | — | ✓ (force) |
+| 1. Merge locally | ✓ | - | - | ✓ |
+| 2. Create PR | - | ✓ | ✓ | - |
+| 3. Keep as-is | - | - | ✓ | - |
+| 4. Discard | - | - | - | ✓ (force) |
 
 ## Common Mistakes
-
-**Removing worktree from inside it**
-- **Problem:** CWD disappears, command errors or hangs
-- **Fix:** Always `cd` to `worktree.main.repo_root` from state.yml first
-
-**Skipping team shutdown**
-- **Problem:** Orphaned implementer agents, uncommitted work lost
-- **Fix:** Step 1 — shutdown all team members before merging
-
-**Cleaning up worktree for Option 2**
-- **Problem:** Removes the worktree while branch is still active and may need changes
-- **Fix:** Option 2 keeps the worktree; only Options 1 and 4 clean it up
 
 **Skipping test verification**
 - **Problem:** Merge broken code, create failing PR
 - **Fix:** Always verify tests before offering options
 
+**Open-ended questions**
+- **Problem:** "What should I do next?" → ambiguous
+- **Fix:** Present exactly 4 structured options
+
+**Automatic worktree cleanup**
+- **Problem:** Remove worktree when might need it (Option 2, 3)
+- **Fix:** Only cleanup for Options 1 and 4
+
 **No confirmation for discard**
 - **Problem:** Accidentally delete work
-- **Fix:** Use AskUserQuestion; wait for explicit confirmation
-
-**Forgetting state.yml update**
-- **Problem:** Next session thinks work is still in progress
-- **Fix:** Step 7 — always write `phase: idle` and clear worktree entries
+- **Fix:** Require typed "discard" confirmation
 
 ## Red Flags
 
 **Never:**
 - Proceed with failing tests
 - Merge without verifying tests on result
-- Delete work without explicit user confirmation
+- Delete work without confirmation
 - Force-push without explicit request
-- Run `git worktree remove` from inside the worktree being removed
-- Clean up worktree for Option 2 (PR) or Option 3 (keep)
 
 **Always:**
-- Shutdown agent team before merging (Step 1)
-- Verify tests before offering options (Step 2)
-- `cd` to repo root before any worktree cleanup
+- Verify tests before offering options
 - Present exactly 4 options
-- Update state.yml to `phase: idle` after completion
+- Get typed confirmation for Option 4
+- Clean up worktree for Options 1 & 4 only
 
 ## Integration
 
 **Called by:**
-- **subagent-driven-development** (Step 7) — After all tasks complete
-- **executing-plans** (Step 5) — After all batches complete
-- **agent-team-driven-development** (Phase 3) — After all waves complete and all reviews pass
+- **subagent-driven-development** (Step 7) - After all tasks complete
+- **executing-plans** (Step 5) - After all batches complete
 
 **Pairs with:**
-- **using-git-worktrees** — Cleans up worktree created by that skill; reads `worktree.main.repo_root` from state.yml for safe CWD
+- **using-git-worktrees** - Cleans up worktree created by that skill
 
-**Reads from state.yml:** `worktree.main.path`, `worktree.main.repo_root`, `plan.path`, `team.roster`
-**Writes to state.yml:** `phase: idle`, `plan.status: executed`, clears `worktree.*`, clears `team`
+## Team Context
+
+When completing work done by an agent team:
+
+1. **Shutdown all specialists** — send `shutdown_request` via SendMessage to each implementer before merging
+2. **Cleanup per-agent worktrees** — ensure all implementer worktrees are removed after their branches are merged
+3. **Final cross-cutting review** — dispatch a code reviewer for the entire implementation (all tasks combined) before presenting merge options
+4. See `agent-team-driven-development` Phase 3 for the complete cleanup sequence
+
+**Called by:**
+- **agent-team-driven-development** (Phase 3) — After all waves complete and all reviews pass

@@ -48,7 +48,7 @@ Agent tool:
 Use when no project-specific agent definition exists:
 
 ```
-Task tool:
+Agent tool:
   subagent_type: general-purpose
   team_name: [team-name]
   name: "[role-name]"
