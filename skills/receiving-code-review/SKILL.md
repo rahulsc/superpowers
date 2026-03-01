@@ -85,6 +85,15 @@ IF conflicts with your human partner's prior decisions:
 
 **your human partner's rule:** "External feedback - be skeptical, but check carefully"
 
+### From Team Peers
+
+When feedback comes from a team peer (another specialist on the same team):
+
+- **Context advantage** — peer reviewers often understand the codebase from their own recent work
+- **Escalate disagreements** — if you disagree with peer feedback, involve the team lead before rejecting
+- **Knowledge transfer** — questions from peer reviewers identify knowledge gaps useful for later waves
+- **Same rules apply** — verify technically, push back if wrong, no performative agreement
+
 ## YAGNI Check for "Professional" Features
 
 ```

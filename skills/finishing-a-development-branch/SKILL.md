@@ -198,3 +198,15 @@ git worktree remove <worktree-path>
 
 **Pairs with:**
 - **using-git-worktrees** - Cleans up worktree created by that skill
+
+## Team Context
+
+When completing work done by an agent team:
+
+1. **Shutdown all specialists** — send `shutdown_request` via SendMessage to each implementer before merging
+2. **Cleanup per-agent worktrees** — ensure all implementer worktrees are removed after their branches are merged
+3. **Final cross-cutting review** — dispatch a code reviewer for the entire implementation (all tasks combined) before presenting merge options
+4. See `agent-team-driven-development` Phase 3 for the complete cleanup sequence
+
+**Called by:**
+- **agent-team-driven-development** (Phase 3) — After all waves complete and all reviews pass
