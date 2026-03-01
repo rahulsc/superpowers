@@ -60,12 +60,14 @@ When a roster exists from composing-teams, use the agent definitions and models 
 
 When a QA agent is in the team roster, use pipelined TDD:
 
-| Wave | QA does | Implementers do |
-|------|---------|-----------------|
-| Wave 0 | Write tests for Wave 1 tasks | — |
-| Wave 1 | Write tests for Wave 2 tasks | Implement Wave 1 (tests already exist) |
-| Wave N | Write tests for Wave N+1 tasks | Implement Wave N |
-| Final wave | Verify all tests pass | Implement final tasks |
+| Wave | Implementers do | QA does (in parallel) |
+|------|-----------------|----------------------|
+| Wave 0 | Foundation tasks (migrations, config, scaffolding) | Write tests for Wave 1 tasks |
+| Wave 1 | Implement Wave 1 (tests already exist) → RED then GREEN | Write tests for Wave 2 tasks |
+| Wave N | Implement Wave N → RED then GREEN | Write tests for Wave N+1 tasks |
+| Final wave | Implement final tasks | Verify all tests pass |
+
+**QA and implementers work in parallel within each wave.** QA is not a separate sequential step — it runs alongside implementers, writing the next wave's tests while current-wave implementation happens.
 
 **QA writes in the lead's worktree** (not a separate QA worktree). Test files don't conflict with implementer worktrees. Implementers branch from the lead's worktree where tests already exist.
 
@@ -245,15 +247,18 @@ digraph agent_team {
    - Same fix loop, same 3-cycle bound
 5. **Mark task complete** via `TaskUpdate`, update `plan.completed_tasks` in state.yml
 
+**Pipelined TDD enforcement:** If QA wrote tests for this wave, verify each implementer's completion report includes both RED evidence (QA's test failed before implementation) and GREEN evidence (test passes after). Reject reports missing either.
+
 **Staggered reviews within a wave:** While implementer-2 is still coding, implementer-1's completed task can already be under review.
 
 **Between waves:**
-- All tasks in current wave must pass both reviews before starting next wave
-- Merge all implementer worktree branches into main worktree
-- Verify integration by running tests on merged result
-- Update `plan.current_wave` in state.yml
-- Check context remaining; run `/compact` if below 50%
-- Message existing implementers with next wave's tasks + context from previous waves
+1. All tasks in current wave must pass both reviews before starting next wave
+2. Merge all implementer worktree branches into main worktree
+3. Verify integration by running tests on merged result
+4. **If QA in roster:** Have QA agent write tests for next+1 wave's tasks in the lead's worktree (e.g., while Wave 2 implementers work, QA writes tests for Wave 3). This keeps the pipeline flowing — implementers always have pre-written tests waiting.
+5. Update `plan.current_wave` in state.yml
+6. Check context remaining; run `/compact` if below 50%
+7. Message existing implementers with next wave's tasks + context from previous waves. **If QA wrote tests:** include the test file paths so implementers run them RED before implementing.
 
 ### Phase 3: Completion
 
