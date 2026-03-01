@@ -11,58 +11,90 @@ Discover, present, and let the user select agent definitions for team compositio
 
 **Announce at start:** "I'm using the composing-teams skill to assemble your development team."
 
+## Verification Gate
+
+Before starting, confirm:
+1. `.superpowers/state.yml` exists and `design.approved == true`
+2. `worktree.main.path` is accessible
+
+If design is not approved: "The design doc has not been approved. Please complete `superpowers:brainstorming` and get design approval before composing a team."
+
+## When to Compose a Team
+
+Compose a team when the design meets all three criteria:
+- 4+ distinct tasks in the design
+- 2+ tasks are independent (can run in parallel)
+- 2+ distinct specialist domains required (e.g., frontend + backend, or implementation + QA)
+
+If the design doesn't meet these criteria, skip to `superpowers:writing-plans` directly.
+
 ## Process
 
 ```dot
 digraph composing_teams {
-    "Discover agents" [shape=box];
-    "Present by tier" [shape=box];
+    "Gate: design.approved?" [shape=diamond];
+    "Stop: get design approved" [shape=box];
+    "Discover agents\n(project > global > shipped)" [shape=box];
+    "Present by tier + model" [shape=box];
     "User selects agents + counts" [shape=box];
-    "Model policy check" [shape=diamond];
-    "Ask about model override" [shape=box];
-    "Output team roster" [shape=box];
+    "Suggest QA/test-writer?" [shape=diamond];
+    "Add QA to roster" [shape=box];
+    "Confirm model + cost" [shape=box];
+    "Write state.yml roster" [shape=box];
     "Fitness check" [shape=diamond];
-    "Recommend team plan format" [shape=box];
-    "Recommend serial plan format" [shape=box];
-    "Invoke writing-plans" [shape=doublecircle];
+    "Invoke writing-plans (team)" [shape=doublecircle];
+    "Invoke writing-plans (serial)" [shape=doublecircle];
 
-    "Discover agents" -> "Present by tier";
-    "Present by tier" -> "User selects agents + counts";
-    "User selects agents + counts" -> "Model policy check";
-    "Model policy check" -> "Ask about model override" [label="non-opus agents found"];
-    "Model policy check" -> "Output team roster" [label="all agents have model set"];
-    "Ask about model override" -> "Output team roster";
-    "Output team roster" -> "Fitness check";
-    "Fitness check" -> "Recommend team plan format" [label="2+ specialists, parallelizable work"];
-    "Fitness check" -> "Recommend serial plan format" [label="otherwise"];
-    "Recommend team plan format" -> "Invoke writing-plans";
-    "Recommend serial plan format" -> "Invoke writing-plans";
+    "Gate: design.approved?" -> "Stop: get design approved" [label="no"];
+    "Gate: design.approved?" -> "Discover agents\n(project > global > shipped)" [label="yes"];
+    "Discover agents\n(project > global > shipped)" -> "Present by tier + model";
+    "Present by tier + model" -> "User selects agents + counts";
+    "User selects agents + counts" -> "Suggest QA/test-writer?" [label="TDD required?"];
+    "Suggest QA/test-writer?" -> "Add QA to roster" [label="yes"];
+    "Suggest QA/test-writer?" -> "Confirm model + cost" [label="no"];
+    "Add QA to roster" -> "Confirm model + cost";
+    "Confirm model + cost" -> "Write state.yml roster";
+    "Write state.yml roster" -> "Fitness check";
+    "Fitness check" -> "Invoke writing-plans (team)" [label="2+ specialists, parallelizable"];
+    "Fitness check" -> "Invoke writing-plans (serial)" [label="otherwise"];
 }
 ```
 
 ### Step 1: Discover Available Agents
 
-Scan for agent `.md` files in order of priority:
+**Agent selection hierarchy** — always prefer more specific over generic:
 
-1. `.claude/agents/` (project-level, highest priority)
-2. `~/.claude/agents/` (global/personal)
-3. Superpowers `agents/` directory (shipped defaults, lowest priority)
+| Tier | Location | Priority | Use when |
+|------|----------|----------|----------|
+| Project agents | `.claude/agents/` | Highest | Project-specific expertise, always preferred |
+| Global agents | `~/.claude/agents/` | Second | Personal cross-project specialists |
+| Shipped defaults | Superpowers `agents/` | Fallback | No project/global agent for that role |
+| Raw model tiers | No agent file | Last resort | No matching agent exists at all |
 
 Deduplicate by name: project overrides global overrides shipped.
 
 Parse each agent's YAML frontmatter for: `name`, `description`, `model`, `tools`.
 
+**If no suitable project agent exists:** Suggest creating one from a shipped template. For example: "There's no project-specific `react-engineer` agent. Would you like me to create `.claude/agents/react-engineer.md` from the shipped `implementer` template? You can customize it for your stack."
+
 ### Step 2: Present by Tier
 
 Group discovered agents into tiers based on their configuration:
 
-| Tier | Criteria | Examples |
-|------|----------|---------|
-| Leadership | opus model + broad tools (incl. Task/WebSearch) | project-lead, principal-architect |
-| Engineers | Full tools (Read/Write/Edit/Bash) | frontend-engineer, backend-engineer |
-| Specialists | Full tools, cross-cutting domain | database, devops, llm-integration |
-| Reviewers | Restricted tools (Read-only, no Write/Edit) | architecture-reviewer, security-reviewer |
-| QA | Full tools, testing focus | qa-engineer, qa-integration |
+| Tier | Criteria | Default model | Examples |
+|------|----------|---------------|---------|
+| Leadership | opus model + broad tools (incl. Task/WebSearch) | opus | project-lead, principal-architect |
+| Engineers | Full tools (Read/Write/Edit/Bash) | sonnet | frontend-engineer, backend-engineer |
+| Specialists | Full tools, cross-cutting domain | sonnet | database, devops, llm-integration |
+| Reviewers | Restricted tools (Read-only, no Write/Edit) | opus | architecture-reviewer, security-reviewer |
+| QA / Test-writer | Full tools, testing focus | sonnet | qa-engineer, qa-integration |
+
+**Model tiering guidance:**
+- Planning, architecture, cross-cutting review → opus (high reasoning demand)
+- Implementation, test-writing → sonnet (fast iteration, sufficient quality)
+- Quick mechanical tasks (rename, format, lint-fix) → haiku (low cost)
+
+**Cost implications:** Multiple opus agents multiply cost rapidly. A team of 3 opus implementers costs ~3x a single opus session. Consider sonnet for implementation agents unless the task has high ambiguity or requires design judgment. Inform the user of the model breakdown before finalizing.
 
 Present each agent with: name, description, model, tool restrictions.
 
@@ -73,18 +105,51 @@ Ask the user:
 2. How many of each (e.g., 2x frontend-engineer, 1x backend-engineer)
 3. Whether to create any new agent definitions on the fly
 
+**Team sizing rationale:**
+- Maximum 3 simultaneous implementers. Beyond 3, context overhead for the lead and merge complexity outweigh parallelism gains.
+- A QA/test-writer agent does not count toward the 3-implementer limit — their work is sequential within each wave (writing tests, not running parallel with implementers).
+- 1-2 implementers + 1 QA is often more effective than 3 implementers with no QA.
+
+**Test-writer / QA role:**
+When the design includes a test phase or TDD is required, recommend adding a QA/test-writer to the roster. This enables pipelined TDD (see `superpowers:test-driven-development`):
+- Wave 0: QA writes failing tests for Wave 1 tasks
+- Wave N: Implementers pass tests; QA writes tests for Wave N+1
+
+Suggest the shipped `qa-engineer` agent or a project-specific QA agent if one exists.
+
 **Model policy:**
 - If an agent definition specifies a model → use that model
-- If no model or `model: inherit` → use the most powerful available model
-- Note any agents without explicit model and inform the user
+- If no model or `model: inherit` → apply model tiering defaults (see Step 2 table)
+- Show the model for every roster entry before asking for confirmation
 
-### Step 4: Output Team Roster
+### Step 4: Output Team Roster and Write State
 
-Add the team roster to the design doc:
+Present the confirmed roster to the user, then write it to `.superpowers/state.yml`:
 
-| Role | Agent Definition | Count | Model | Tier |
-|------|-----------------|-------|-------|------|
-| [instance-name] | [agent-name] | [count] | [model] | [tier] |
+```yaml
+phase: composing
+team:
+  name: <project>-team
+  roster:
+    - role: react-engineer
+      agent: react-engineer       # project agent (highest priority)
+      model: sonnet
+    - role: backend-engineer
+      agent: implementer          # shipped fallback
+      model: sonnet
+    - role: qa-engineer
+      agent: qa-engineer          # shipped fallback
+      model: sonnet
+    - role: architect-reviewer
+      agent: code-reviewer        # shipped fallback
+      model: opus
+```
+
+Also show a human-readable summary table:
+
+| Role | Agent Definition | Model | Tier |
+|------|-----------------|-------|------|
+| [instance-name] | [agent-name] | [model] | [tier] |
 
 ### Step 5: Route to Planning
 
