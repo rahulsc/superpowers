@@ -82,3 +82,13 @@ After all tasks complete and verified:
 - **superpowers:using-git-worktrees** - REQUIRED: Set up isolated workspace before starting
 - **superpowers:writing-plans** - Creates the plan this skill executes
 - **superpowers:finishing-a-development-branch** - Complete development after all tasks
+
+## Team Alternative
+
+For same-session parallel execution with persistent specialists, see **agent-team-driven-development**. It orchestrates multiple implementer agents working in parallel across waves, with two-stage review after each task.
+
+| Approach | Session | Parallelism | Best for |
+|----------|---------|-------------|----------|
+| Executing Plans | Separate | Batch (3 tasks) | Human-in-loop between batches |
+| Subagent-Driven | Same | Serial | Fast iteration, no team overhead |
+| Agent Team-Driven | Same | Parallel waves | 4+ tasks with independence |

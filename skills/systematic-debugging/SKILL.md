@@ -287,6 +287,12 @@ These techniques are part of systematic debugging and available in this director
 - **superpowers:test-driven-development** - For creating failing test case (Phase 4, Step 1)
 - **superpowers:verification-before-completion** - Verify fix worked before claiming success
 
+## Team Context
+
+**Parallel investigation:** When multiple potential root causes exist in different subsystems, consider using `dispatching-parallel-agents` to investigate each hypothesis concurrently.
+
+**Team escalation:** When debugging blocks multiple team tasks, elevate to the team lead immediately rather than continuing to investigate alone. The lead can reassign dependent tasks or provide additional context.
+
 ## Real-World Impact
 
 From debugging sessions:
