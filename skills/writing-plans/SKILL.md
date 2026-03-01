@@ -1,81 +1,200 @@
 ---
 name: writing-plans
-description: Use when you have a spec or requirements for a multi-step task, before touching code
+description: Use when you have an approved design and need an implementation plan before touching code
 ---
 
 # Writing Plans
 
 ## Overview
 
-Write comprehensive implementation plans assuming the engineer has zero context for our codebase and questionable taste. Document everything they need to know: which files to touch for each task, code, testing, docs they might need to check, how to test it. Give them the whole plan as bite-sized tasks. DRY. YAGNI. TDD. Frequent commits.
+Write implementation plans that specify **what to build, where to put it, and why** — agents decide how. Provide enough context that a specialist who has never seen the codebase can implement correctly without guessing.
 
-Assume they are a skilled developer, but know almost nothing about our toolset or problem domain. Assume they don't know good test design very well.
+**Not "complete code in plan"** — specify the interface, the file locations, the test expectations, and the acceptance criteria. Agents write the actual implementation.
 
 **Announce at start:** "I'm using the writing-plans skill to create the implementation plan."
 
-**Context:** This should be run in a dedicated worktree (created by brainstorming skill).
+## Verification Gate
 
-**Save plans to:** `docs/plans/YYYY-MM-DD-<feature-name>.md`
+Before starting, check `.superpowers/state.yml`:
+
+```
+REQUIRED:
+  design.approved == true       # user has signed off on design
+  worktree.main.path accessible # isolated workspace exists
+
+IF team plan:
+  team.roster exists            # composing-teams has run
+
+IF any check fails:
+  Stop. Report which precondition is missing.
+  Do not write a plan until prerequisites are met.
+```
+
+## Save Location
+
+Use directory-based plan structure:
+
+```
+docs/plans/<project>/
+├── design.md          # already exists (brainstorming output — do not touch)
+├── plan.md            # write this (overview + task list)
+└── tasks/             # write one file per task (optional, for 4+ task plans)
+    ├── 01-<slug>.md
+    ├── 02-<slug>.md
+    └── ...
+```
+
+`<project>` is the kebab-case name from the design doc (e.g., `user-auth`, `payment-refactor`).
+
+**Do NOT use date-prefixed filenames** (`docs/plans/YYYY-MM-DD-feature.md`). The directory name carries enough context and state.yml stores the path for cross-session discovery.
+
+## After Writing
+
+Write to state.yml:
+
+```yaml
+plan:
+  path: docs/plans/<project>/plan.md
+  status: pending
+  executor: ""           # filled in when user picks execution approach
+  total_tasks: N
+phase: planning
+```
 
 ## Bite-Sized Task Granularity
 
-**Each step is one action (2-5 minutes):**
-- "Write the failing test" - step
-- "Run it to make sure it fails" - step
-- "Implement the minimal code to make the test pass" - step
-- "Run the tests and make sure they pass" - step
-- "Commit" - step
+**Each task covers one coherent piece of work (not one line of code):**
+- "Add Zod schema for user preferences" — one task
+- "Create DB migration and table" — one task
+- "Implement API route with validation" — one task
 
-## Plan Document Header
+Within each task, the implementer follows TDD: write failing test, verify it fails, implement, verify it passes, commit. The plan specifies *what* the test should cover and what failure to expect — not the exact test code.
 
-**Every plan MUST start with this header:**
+## Plan Document Structure
 
-````markdown
+### plan.md
+
+```markdown
 # [Feature Name] Implementation Plan
 
-> **For Claude:** Use [execution-skill] to execute this plan — [execution summary].
+> See [design](design.md) for context and rationale.
+> **For Claude:** Use [execution-skill] to execute this plan.
 
-**Goal:** [One sentence describing what this builds]
+**Goal:** [One sentence]
 
 **Architecture:** [2-3 sentences about approach]
 
-**Tech Stack:** [Key technologies/libraries]
+**Tech Stack:** [Key technologies]
 
 ---
-````
 
-**Write the header last** — after the Team Fitness Check determines which execution approach to use. The execution skill and summary in the header depend on the chosen approach.
+## Tasks
+
+1. Task 1: [Title]
+2. Task 2: [Title]
+3. Task 3: [Title]
+
+[Wave analysis if team plan — see below]
+
+## Test Expectations Summary
+
+| Task | What to test | Expected red failure |
+|------|-------------|----------------------|
+| 1 | [behavior] | [specific error message or missing symbol] |
+| 2 | [behavior] | [specific error message or missing symbol] |
+```
+
+**Write the header last** — after the Team Fitness Check determines execution approach.
+
+### tasks/<NN>-<slug>.md (one per task, for 4+ task plans)
+
+```markdown
+# Task N: [Title]
+
+**Specialist:** [role] *(team plans only)*
+**Depends on:** Task X (for [specific output]) *(or None)*
+**Produces:** [what later tasks consume]
+
+## Goal
+
+One sentence.
+
+## Acceptance Criteria
+
+- [ ] [Specific, verifiable criterion]
+- [ ] [Specific, verifiable criterion]
+
+## Test Expectations
+
+- **Test:** [what behavior to test — e.g., "rejects empty email with 400"]
+- **Expected red failure:** [specific error — e.g., "TypeError: submitForm is not a function"]
+- **Expected green:** [what the passing assertion looks like]
+
+## Files
+
+- Create: `exact/path/to/file.py`
+- Modify: `exact/path/to/existing.py` (section: lines ~123-145)
+- Test: `tests/exact/path/to/test_feature.py`
+
+## Implementation Notes
+
+[Context the implementer needs that isn't in design.md]
+[Interfaces they must match]
+[Patterns from existing code to follow]
+[What NOT to build — YAGNI notes]
+
+## Commit
+
+`feat: [description]`
+```
+
+**For plans with fewer than 4 tasks:** Embed the full task content in `plan.md` directly (no `tasks/` directory needed).
+
+## Plan-Level Test Expectations
+
+Every task MUST include test expectations. This is not optional.
+
+**What to specify:**
+- The behavior being tested (not the test code)
+- The specific error or failure that proves the test runs before the implementation exists
+- What passing looks like
+
+**Why this matters:** Test expectations in the plan make tests impossible to "forget." The QA agent (pipelined TDD) or the implementer (solo TDD) uses these to write the failing test before touching production code.
+
+**Good test expectations:**
+```
+- Test: POST /api/users rejects missing email field
+- Expected red failure: AssertionError: expected 400, got 500 (route doesn't validate yet)
+- Expected green: response.status === 400, body.error === "email required"
+```
+
+**Too vague:**
+```
+- Test: validate user input
+```
 
 ## Team Fitness Check
 
-**After drafting all tasks and their dependencies, evaluate whether this plan benefits from team execution.**
+After drafting all tasks and their dependencies, evaluate whether this plan benefits from team execution.
 
-This check applies when a team roster exists (from composing-teams). If no roster exists, skip this section and use standard serial format.
-
-**Use team execution (add Wave Analysis and specialist metadata) when ALL of these are true:**
+**Use team execution when ALL of these are true:**
 - At least 2 waves have 2+ tasks each (real parallel work exists)
 - At least 2 distinct specialist roles are needed
 - 4+ tasks total (team overhead pays for itself)
 
 **Use standard serial format when ANY of these are true:**
-- Every wave has only 1 task (it's a purely serial chain)
+- Every wave has only 1 task (purely serial chain)
 - Fewer than 4 tasks total
-- Only 1 specialist role needed (no domain diversity)
+- Only 1 specialist role needed
 - Tasks are tightly coupled with pervasive shared state
 
-**If serial is the better fit:**
+If serial is the better fit, announce: *"After analyzing dependencies, this plan is essentially serial — [reason]. Using standard serial format."*
 
-Announce to the user: *"After analyzing dependencies, this plan is essentially serial — [reason: e.g., every task depends on the previous one / only 3 tasks / single specialist needed]. Team overhead wouldn't pay off. Using standard serial format."*
+## Wave Analysis (Team Plans Only)
 
-Then: omit the Wave Analysis section and per-task team metadata (Specialist/Depends on/Produces). Use the standard Task Structure below.
+Include immediately after the header when Team Fitness Check passes.
 
-**If team execution is a good fit, proceed with the Wave Analysis section below.**
-
-## Wave Analysis (Conditional — Team Plans Only)
-
-Include this section immediately after the header when the Team Fitness Check passes. This is the team lead's roadmap for orchestration.
-
-````markdown
+```markdown
 ## Wave Analysis
 
 ### Specialists
@@ -83,21 +202,17 @@ Include this section immediately after the header when the Team Fitness Check pa
 | Role | Expertise | Tasks |
 |------|-----------|-------|
 | [role-name] | [technologies, domain] | Tasks N, M |
-| [role-name] | [technologies, domain] | Tasks X, Y |
 
 ### Waves
 
-**Wave 1: [Theme]** — [why these are the foundation]
+**Wave 1: [Theme]**
 - Task N ([role-name]) — [one-line summary]
-- Task M ([role-name]) — [one-line summary]
 
-  *Parallel-safe because:* [why these tasks don't conflict — different directories, no import relationship, etc.]
+  *Parallel-safe because:* [different directories, no import relationship]
 
 **Wave 2: [Theme]** — needs Wave 1 [what specifically]
 - Task X ([role-name]) — [one-line summary]
-- Task Y ([role-name]) — [one-line summary]
 
-  *Parallel-safe because:* [justification]
   *Depends on Wave 1:* [specific outputs — file paths, types, tables]
 
 ### Dependency Graph
@@ -106,108 +221,47 @@ Include this section immediately after the header when the Team Fitness Check pa
 Task 1 ──→ Task 3 ──→ Task 5
 Task 2 ──→ Task 4 ──↗
 ```
-````
+```
 
-**Rules for wave grouping:**
+**Wave grouping rules:**
 - Tasks in the same wave MUST NOT touch the same files
 - Tasks in the same wave MUST NOT have an import relationship
 - Max 3 tasks per wave (max 3 simultaneous implementers)
-- When unsure about independence → serialize into separate waves
-- Earlier waves produce foundations (types, schemas, configs); later waves consume them
+- When unsure → serialize
 
-## Task Structure
+## Plan Review
 
-````markdown
-### Task N: [Component Name]
+Before handing off for execution, consider a plan review:
+- Re-read every task against the design doc acceptance criteria
+- Check that test expectations are specific enough for a QA agent to write tests without clarification
+- Verify no task assumes output from a same-wave task (would cause conflicts)
+- Confirm file paths exist or are clearly new
 
-**Agent:** [agent-definition-name] *(optional — when a specific agent definition should be used)*
-**Specialist:** [role-name] *(conditional — team plans only)*
-**Depends on:** Task X (for [specific thing]) *(conditional — team plans only)*
-**Produces:** [what later tasks need] *(conditional — team plans only)*
-
-**Files:**
-- Create: `exact/path/to/file.py`
-- Modify: `exact/path/to/existing.py:123-145`
-- Test: `tests/exact/path/to/test.py`
-
-**Step 1: Write the failing test**
-
-```python
-def test_specific_behavior():
-    result = function(input)
-    assert result == expected
-```
-
-**Step 2: Run test to verify it fails**
-
-Run: `pytest tests/path/test.py::test_name -v`
-Expected: FAIL with "function not defined"
-
-**Step 3: Write minimal implementation**
-
-```python
-def function(input):
-    return expected
-```
-
-**Step 4: Run test to verify it passes**
-
-Run: `pytest tests/path/test.py::test_name -v`
-Expected: PASS
-
-**Step 5: Commit**
-
-```bash
-git add tests/path/test.py src/path/file.py
-git commit -m "feat: add specific feature"
-```
-````
-
-### Per-Task Metadata Rules
-
-**`Agent:` (optional, any plan)** — The agent definition to use when dispatching this task. References an agent from `.claude/agents/`, `~/.claude/agents/`, or the superpowers `agents/` directory. If omitted, uses default agent.
-
-**`Specialist:` (conditional, team plans only)** — The role name that should implement this task. Match to the Specialists table in the Wave Analysis. Use descriptive role names: `backend-engineer`, `react-engineer`, `swift-engineer`, `schema-engineer`.
-
-**`Depends on:` (conditional, team plans only)** — Either `None` (wave 1 task) or explicit task references with what's needed. Example: `Task 1 (Zod schemas at packages/shared/src/schemas/)`. This tells the team lead what `addBlockedBy` relationships to set and what cross-wave context to provide.
-
-**`Produces:` (conditional, team plans only)** — What this task creates that later tasks consume. Example: `Drizzle schema at apps/server/src/db/schema.ts, migration at apps/server/drizzle/`. This tells the team lead what context to forward when assigning dependent tasks in later waves.
+For critical or complex plans, a separate review pass (treating yourself as a new reader with no context) catches gaps that are obvious once implementation starts.
 
 ## Remember
+
 - Exact file paths always
-- Complete code in plan (not "add validation")
-- Exact commands with expected output
-- Reference relevant skills with @ syntax
+- Specify what/where/why — not complete code
+- Every task needs test expectations (behavior + red failure + green)
+- Reference relevant skills by name: `superpowers:skill-name`
 - DRY, YAGNI, TDD, frequent commits
-- For team plans: every task must have Specialist, Depends on, and Produces fields
+- For team plans: every task must have Specialist, Depends on, Produces fields
 - For team plans: Wave Analysis must justify why same-wave tasks are parallel-safe
-- For team plans: dependency graph must be acyclic
-- For team plans: max 3 tasks per wave, max 3 specialist roles total
+- For team plans: dependency graph must be acyclic, max 3 tasks per wave
 
 ## Execution Handoff
 
-After saving the plan, offer execution choice:
+After saving the plan and writing state.yml, offer execution choice:
 
-**"Plan complete and saved to `docs/plans/<filename>.md`. Three execution options:**
+**"Plan saved to `docs/plans/<project>/plan.md`. Three execution options:**
 
-**1. Agent Team-Driven (this session)** - Parallel specialist agents, wave-based execution, two-stage review after each task. Best for 4+ tasks with parallelism.
+**1. Agent Team-Driven (this session)** — Parallel specialist agents, wave-based execution, two-stage review after each task. Best for 4+ tasks with parallelism.
 
-**2. Subagent-Driven (this session)** - I dispatch fresh subagent per task, review between tasks, fast iteration. Best for serial plans or fewer tasks.
+**2. Subagent-Driven (this session)** — Fresh subagent per task, review between tasks. Best for serial plans or fewer tasks.
 
-**3. Parallel Session (separate)** - Open new session with executing-plans, batch execution with checkpoints. Best for human-in-loop between batches.
+**3. Parallel Session (separate)** — Open new session with executing-plans, batch execution with checkpoints. Best for human-in-loop between batches.
 
 **Which approach?"**
 
-**If Agent Team-Driven chosen:**
-- **REQUIRED SUB-SKILL:** Use agent-team-driven-development
-- Stay in this session
-- Team lead spawns specialists, orchestrates waves, runs reviews
-
-**If Subagent-Driven chosen:**
-- **REQUIRED SUB-SKILL:** Use superpowers:subagent-driven-development
-- Stay in this session
-- Fresh subagent per task + code review
-
-**If Parallel Session chosen:**
-- Guide them to open new session in worktree
-- **REQUIRED SUB-SKILL:** New session uses superpowers:executing-plans
+After user chooses, update state.yml `plan.executor` field, then invoke the chosen execution skill.
