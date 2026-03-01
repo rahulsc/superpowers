@@ -1,39 +1,17 @@
 ---
 name: using-superpowers
-description: Use when starting any conversation - establishes how to find and use skills, requiring Skill tool invocation before ANY response including clarifying questions
+description: Use when starting work on any task - establishes how to find and invoke skills before responding or acting
 ---
 
-<SUBAGENT-STOP>
-If you were dispatched as a subagent to execute a specific task, skip this skill.
-</SUBAGENT-STOP>
+**The Rule:** Invoke relevant skills BEFORE any response or action. If you think there is even a 1% chance a skill applies, invoke it first. If an invoked skill turns out not to fit, you don't need to follow it.
 
-<EXTREMELY-IMPORTANT>
-If you think there is even a 1% chance a skill might apply to what you are doing, you ABSOLUTELY MUST invoke the skill.
-
-IF A SKILL APPLIES TO YOUR TASK, YOU DO NOT HAVE A CHOICE. YOU MUST USE IT.
-
-This is not negotiable. This is not optional. You cannot rationalize your way out of this.
-</EXTREMELY-IMPORTANT>
-
-## Instruction Priority
-
-Superpowers skills override default system prompt behavior, but **user instructions always take precedence**:
-
-1. **User's explicit instructions** (CLAUDE.md, AGENTS.md, direct requests) — highest priority
-2. **Superpowers skills** — override default system behavior where they conflict
-3. **Default system prompt** — lowest priority
-
-If CLAUDE.md or AGENTS.md says "don't use TDD" and a skill says "always use TDD," follow the user's instructions. The user is in control.
+**Stuck-state check:** If you notice you have been responding without invoking any skills across multiple turns, stop. Read this skill again. You may have drifted into bypassing the skill framework.
 
 ## How to Access Skills
 
 **In Claude Code:** Use the `Skill` tool. When you invoke a skill, its content is loaded and presented to you—follow it directly. Never use the Read tool on skill files.
 
 **In other environments:** Check your platform's documentation for how skills are loaded.
-
-## Platform Adaptation
-
-Skills use Claude Code tool names. Non-CC platforms: see `references/codex-tools.md` for tool equivalents.
 
 # Using Skills
 
@@ -73,22 +51,15 @@ digraph skill_flow {
 
 ## Red Flags
 
-These thoughts mean STOP—you're rationalizing:
+These thoughts mean STOP — you're rationalizing:
 
 | Thought | Reality |
 |---------|---------|
-| "This is just a simple question" | Questions are tasks. Check for skills. |
+| "This is just a simple question" | Questions are tasks. Check for skills first. |
 | "I need more context first" | Skill check comes BEFORE clarifying questions. |
-| "Let me explore the codebase first" | Skills tell you HOW to explore. Check first. |
-| "I can check git/files quickly" | Files lack conversation context. Check for skills. |
-| "Let me gather information first" | Skills tell you HOW to gather information. |
+| "I remember this skill" | Skills evolve. Read current version, don't recall. |
 | "This doesn't need a formal skill" | If a skill exists, use it. |
-| "I remember this skill" | Skills evolve. Read current version. |
-| "This doesn't count as a task" | Action = task. Check for skills. |
-| "The skill is overkill" | Simple things become complex. Use it. |
 | "I'll just do this one thing first" | Check BEFORE doing anything. |
-| "This feels productive" | Undisciplined action wastes time. Skills prevent this. |
-| "I know what that means" | Knowing the concept ≠ using the skill. Invoke it. |
 
 ## Skill Priority
 
@@ -117,6 +88,17 @@ Superpowers supports multi-agent team execution for parallelizable work:
 - **writing-plans** — Creates implementation plans with optional wave analysis for team execution
 
 Agent teams are experimental and require the `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` setting. See [Claude Code agent teams docs](https://code.claude.com/docs/en/agent-teams) for setup.
+
+## Subagent Context
+
+Subagents spawned via the Agent tool do **not** automatically receive the skill framework. They start without `using-superpowers` loaded and may not invoke skills.
+
+To give spawned agents skill awareness:
+- Use project agents (`.claude/agents/`) that embed skill invocations in their system prompts
+- Or pass explicit skill names in the agent prompt: "Use `superpowers:test-driven-development` for all implementation tasks"
+- Or use `subagent_type` matching a skill-aware agent definition
+
+Raw subagents with no agent type receive no skill framework and should be treated accordingly.
 
 ## User Instructions
 
