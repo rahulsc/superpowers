@@ -7,7 +7,7 @@ Templates for spawning specialist implementers and communicating with them acros
 Use when creating a new implementer team member. Tailor the role and expertise to the tasks they'll handle.
 
 ```
-Task tool:
+Agent tool:
   subagent_type: general-purpose
   team_name: [team-name]
   name: "[role-name]"

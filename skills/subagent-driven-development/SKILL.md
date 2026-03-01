@@ -35,6 +35,8 @@ digraph when_to_use {
 - Two-stage review after each task: spec compliance first, then code quality
 - Faster iteration (no human-in-loop between tasks)
 
+**If plan has 4+ tasks with 2+ waves of parallelism**, consider **agent-team-driven-development** for parallel execution with persistent specialists instead.
+
 ## The Process
 
 ```dot
@@ -81,6 +83,15 @@ digraph process {
     "Dispatch final code reviewer subagent for entire implementation" -> "Use superpowers:finishing-a-development-branch";
 }
 ```
+
+## Agent-Aware Dispatch
+
+When a team roster exists (from composing-teams), use the specified agent definition for implementer subagents instead of generic `general-purpose`:
+
+- If the task has an `Agent:` field, use that agent definition
+- If the roster specifies a model for the agent, use that model
+- If no model is specified or `model: inherit`, use the most powerful available model
+- Reviewer subagents still use their standard definitions (`general-purpose` for spec, `superpowers:code-reviewer` for quality)
 
 ## Prompt Templates
 
@@ -240,3 +251,4 @@ Done!
 
 **Alternative workflow:**
 - **superpowers:executing-plans** - Use for parallel session instead of same-session execution
+- **superpowers:agent-team-driven-development** - Use for parallel execution with persistent specialist agents across waves (better for 4+ tasks with parallelism)

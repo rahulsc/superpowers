@@ -32,12 +32,16 @@ Execute plans by orchestrating a team of persistent specialist agents working in
 | Role | How Spawned | Persistence | Count |
 |------|------------|-------------|-------|
 | Lead (you) | Main agent | Session lifetime | 1 |
-| Specialist Implementer | `general-purpose` team member | Persistent, reused across waves | 1 per parallel task (max 3) |
-| Spec Reviewer | `general-purpose` subagent | Fresh per review | As needed |
+| Specialist Implementer | Agent definition from team roster | Persistent, reused across waves | 1 per parallel task (max 3) |
+| Spec Reviewer | Subagent | Fresh per review | As needed |
 | Code Quality Reviewer | `superpowers:code-reviewer` subagent | Fresh per review | As needed |
 
+**Use agent definitions from team roster created by composing-teams.** When a roster exists, spawn implementers using the specified agent definitions (e.g., `architect`, `implementer`, `qa-engineer`) rather than generic `general-purpose`. If the roster specifies a model for an agent, use that model. If no model is specified, use the most powerful available model.
+
+**Max 3 simultaneous implementers.** More than that hits diminishing returns: git conflicts, resource overhead, harder to coordinate. This is the single hard constraint on team size.
+
 **Implementers are team members** because they benefit from persistence:
-- Within a task: reviewer finds issues → message the same implementer → they fix without re-learning
+- Within a task: reviewer finds issues -> message the same implementer -> they fix without re-learning
 - Across waves: implementer who built the schema in wave 1 already knows the codebase for wave 3
 
 **Reviewers are subagents** because they benefit from fresh context:
@@ -45,35 +49,101 @@ Execute plans by orchestrating a team of persistent specialist agents working in
 - "Do not trust the implementer's report" works better with zero prior context
 
 **Implementers are specialists, not generic.** The lead analyzes the plan and spawns by role:
-- `name: "react-engineer"` — React/TypeScript expertise, component patterns
-- `name: "backend-engineer"` — API design, database, server conventions
-- `name: "swift-engineer"` — Swift/SwiftUI, iOS patterns
+- `name: "react-engineer"` -- React/TypeScript expertise, component patterns
+- `name: "backend-engineer"` -- API design, database, server conventions
+- `name: "swift-engineer"` -- Swift/SwiftUI, iOS patterns
 
 Name implementers by role, not by number. Assign tasks to the specialist who matches.
 
-**Max 3 simultaneous implementers.** More than that hits diminishing returns: git conflicts, resource overhead, harder to coordinate.
+## Git Isolation
+
+**Per-agent worktrees are mandatory.** Each implementer MUST be spawned with `isolation: "worktree"` on the Agent tool. No exceptions unless the user explicitly provides an alternative isolation strategy.
+
+**Worktree lifecycle:**
+1. Each implementer gets their own worktree automatically via `isolation: "worktree"`
+2. Implementers commit to their worktree's branch
+3. After each wave's reviews pass, the lead merges implementer branches into the main worktree
+4. Before starting the next wave, the lead ensures the merge is clean
+5. If merge conflicts occur: lead resolves them directly or directs the relevant implementer to resolve
+
+**Between waves:**
+- All implementer branches from the current wave must be merged before the next wave starts
+- The lead runs tests on the merged result to verify integration
+- Next wave's implementers start from the clean merged state
 
 ## The Process
+
+```dot
+digraph agent_team {
+    rankdir=TB;
+    node [shape=box];
+
+    plan_analysis [label="Plan Analysis:\nRead plan, extract tasks,\nanalyze dependencies"];
+    team_setup [label="Team Setup:\nGroup into waves,\ndecide specializations,\nTeamCreate, TaskCreate"];
+    spawn [label="Spawn Implementers:\nOne per wave-1 task\n(isolation: worktree)"];
+
+    subgraph cluster_wave {
+        label="Wave Execution (repeat per wave)";
+        style=dashed;
+
+        implement [label="Implementers work\nin parallel"];
+        spec_review [label="Spec Review:\nDispatch per task\n(staggered)"];
+        spec_pass [label="Spec passes?" shape=diamond];
+        fix_spec [label="Implementer\nfixes spec gaps"];
+        code_review [label="Code Quality Review:\nDispatch per task"];
+        code_pass [label="Quality passes?" shape=diamond];
+        fix_quality [label="Implementer\nfixes quality issues"];
+        task_complete [label="Mark task complete"];
+    }
+
+    merge [label="Between Waves:\nMerge worktree branches,\nverify integration"];
+    wave_check [label="More waves?" shape=diamond];
+    next_wave [label="Assign next wave tasks\nto implementers"];
+    final_review [label="Final cross-cutting\ncode review"];
+    shutdown [label="Shutdown implementers,\nTeamDelete"];
+    finish [label="Use superpowers:\nfinishing-a-development-branch" shape=doublecircle];
+
+    plan_analysis -> team_setup;
+    team_setup -> spawn;
+    spawn -> implement;
+    implement -> spec_review;
+    spec_review -> spec_pass;
+    spec_pass -> fix_spec [label="no"];
+    fix_spec -> spec_review [label="re-review"];
+    spec_pass -> code_review [label="yes"];
+    code_review -> code_pass;
+    code_pass -> fix_quality [label="no"];
+    fix_quality -> code_review [label="re-review"];
+    code_pass -> task_complete [label="yes"];
+    task_complete -> merge;
+    merge -> wave_check;
+    wave_check -> next_wave [label="yes"];
+    next_wave -> implement;
+    wave_check -> final_review [label="no"];
+    final_review -> shutdown;
+    shutdown -> finish;
+}
+```
 
 ### Phase 1: Plan Analysis & Team Setup
 
 1. **Read plan** once, extract every task with its full description
 2. **Analyze dependencies** between tasks (see Dependency Analysis below)
-3. **Group into waves** — tasks in the same wave must be independent and not touch the same files
-4. **Decide specializations** — what expertise does each wave need? Name implementers by role
+3. **Group into waves** -- tasks in the same wave must be independent and not touch the same files
+4. **Decide specializations** -- what expertise does each wave need? Name implementers by role
 5. **Create team** via `TeamCreate`
-6. **Create task list** — `TaskCreate` for each task, `TaskUpdate` to set `addBlockedBy` for cross-wave dependencies
-7. **Spawn implementers** — one per task in wave 1, specialized by role, using `./implementer-prompt.md`
+6. **Create task list** -- `TaskCreate` for each task, `TaskUpdate` to set `addBlockedBy` for cross-wave dependencies
+7. **Spawn implementers** -- one per task in wave 1, specialized by role, using agent definitions from the team roster and `./implementer-prompt.md`. Each spawned with `isolation: "worktree"`
 
 ### Phase 2: Wave Execution
 
-**Per task (staggered — reviews start as each implementer finishes, don't wait for the whole wave):**
+**Per task (staggered -- reviews start as each implementer finishes, don't wait for the whole wave):**
 
 1. **Implementer reports completion** via `SendMessage`
-2. **Spec review** — dispatch subagent using `./spec-reviewer-prompt.md`
-   - If issues: message implementer with specific feedback → they fix → dispatch fresh spec reviewer
+2. **Spec review** -- dispatch subagent using `./spec-reviewer-prompt.md`
+   - If issues: message implementer with specific feedback -> they fix -> dispatch fresh spec reviewer
    - Repeat until pass
-3. **Code quality review** — dispatch subagent using `./code-quality-reviewer-prompt.md`
+3. **Code quality review** -- dispatch subagent using `./code-quality-reviewer-prompt.md`
    - If issues: same fix loop
    - Repeat until pass
 4. **Mark task complete** via `TaskUpdate`
@@ -83,6 +153,8 @@ While implementer-2 is still coding, implementer-1's completed task can already 
 
 **Between waves:**
 - All tasks in current wave must pass both reviews before starting next wave
+- Merge all implementer worktree branches into the main worktree
+- Verify integration by running tests on the merged result
 - Message existing implementers with next wave's tasks + context from previous waves
 - If a wave needs a different specialty, shut down the unneeded implementer and spawn a new specialist
 
@@ -108,7 +180,7 @@ While implementer-2 is still coding, implementer-1's completed task can already 
 - Task B needs Task A's database table/migration
 - Task B calls an API route Task A builds
 
-**When unsure → serialize.** Wrong-wave parallelism causes merge conflicts, which are far more expensive than the time saved.
+**When unsure -> serialize.** Wrong-wave parallelism causes merge conflicts, which are far more expensive than the time saved.
 
 **Example:**
 ```
@@ -120,25 +192,25 @@ Plan: Add user preferences feature
   Task 5: Update iOS model docs    (docs/)
 
 Dependencies:
-  Task 2 → needs Task 1 (schema types)
-  Task 3 → needs Task 1 + Task 2 (types + DB table)
-  Task 4 → needs Task 1 + Task 3 (types + API)
-  Task 5 → needs Task 1 (schema types)
+  Task 2 -> needs Task 1 (schema types)
+  Task 3 -> needs Task 1 + Task 2 (types + DB table)
+  Task 4 -> needs Task 1 + Task 3 (types + API)
+  Task 5 -> needs Task 1 (schema types)
 
 Waves:
-  Wave 1: [Task 1]          — foundation, everything else needs these types
-  Wave 2: [Task 2, Task 5]  — both need only Task 1, different modules
-  Wave 3: [Task 3]          — needs Task 2's DB table
-  Wave 4: [Task 4]          — needs Task 3's API
+  Wave 1: [Task 1]          -- foundation, everything else needs these types
+  Wave 2: [Task 2, Task 5]  -- both need only Task 1, different modules
+  Wave 3: [Task 3]          -- needs Task 2's DB table
+  Wave 4: [Task 4]          -- needs Task 3's API
 
 Specialists: backend-engineer (Tasks 1-3), react-engineer (Task 4), docs-writer (Task 5)
 ```
 
 ## Prompt Templates
 
-- `./implementer-prompt.md` — Spawn specialist + follow-up task assignment + review feedback
-- `./spec-reviewer-prompt.md` — Dispatch spec compliance reviewer (subagent)
-- `./code-quality-reviewer-prompt.md` — Dispatch code quality reviewer (subagent)
+- `./implementer-prompt.md` -- Spawn specialist + follow-up task assignment + review feedback
+- `./spec-reviewer-prompt.md` -- Dispatch spec compliance reviewer (subagent)
+- `./code-quality-reviewer-prompt.md` -- Dispatch code quality reviewer (subagent)
 
 ## Example Workflow
 
@@ -158,15 +230,15 @@ Specialists needed: react-engineer, frontend-architect
 
 [TeamCreate: "phase-2-web-app"]
 [TaskCreate x 6, set blockedBy]
-[Spawn react-engineer, frontend-architect]
-[Assign Task 1 → react-engineer, Task 2 → frontend-architect]
+[Spawn react-engineer, frontend-architect — each with isolation: "worktree"]
+[Assign Task 1 -> react-engineer, Task 2 -> frontend-architect]
 
 --- Wave 1 (parallel) ---
 
 react-engineer: "Task 1 done. API client with typed hooks, 4 tests passing. abc123."
 frontend-architect: [still working]
 
-[Don't wait — dispatch spec reviewer for Task 1 immediately]
+[Don't wait -- dispatch spec reviewer for Task 1 immediately]
 Spec reviewer: Spec compliant
 [Dispatch code quality reviewer for Task 1]
 Code reviewer: Approved
@@ -184,7 +256,7 @@ Spec reviewer: Spec compliant now
 Code reviewer: Approved
 [Mark Task 2 complete]
 
-Wave 1 complete → unblocks Wave 2
+Wave 1 complete -> merge worktree branches -> verify integration -> unblocks Wave 2
 
 --- Wave 2 (parallel) ---
 
@@ -206,56 +278,57 @@ Wave 1 complete → unblocks Wave 2
 
 ## Red Flags
 
-**Sequencing — never:**
+**Sequencing -- never:**
 - Start code quality review before spec compliance passes
 - Start a new wave before current wave's reviews all pass
 - Let an implementer start their next task while their current task has open review issues
 - Start work on main/master without explicit user consent
 
-**Parallelism — never:**
+**Parallelism -- never:**
 - More than 3 simultaneous implementers
 - Tasks touching the same files in the same wave
 - Proceed when unsure about independence (serialize instead)
 - Give an implementer more than one task at a time
 
-**Communication — never:**
+**Communication -- never:**
 - Make implementers read plan files (provide full text)
 - Omit previous-wave context when assigning later-wave tasks
 - Rush implementers past their questions
-- Forward vague review feedback ("there were issues" — give file:line specifics)
+- Forward vague review feedback ("there were issues" -- give file:line specifics)
 
-**Reviews — never:**
+**Reviews -- never:**
 - Skip re-review after fixes
 - Let self-review replace actual review (both needed)
 - Skip either review stage (spec compliance AND code quality required)
 - Proceed with unfixed issues
 
 **Recovery:**
-- Implementer stuck → check what's blocking via SendMessage, provide guidance
-- Implementer failed entirely → shut them down, spawn a fresh specialist with context about what went wrong
+- Implementer stuck -> check what's blocking via SendMessage, provide guidance
+- Implementer failed entirely -> shut them down, spawn a fresh specialist with context about what went wrong
 - Never try to fix manually from the lead (context pollution)
 
 ## Team Lifecycle
 
-1. **Create** — `TeamCreate` at start of plan execution
-2. **Spawn** — specialists for wave 1 tasks
-3. **Reuse** — message existing implementers with new tasks for subsequent waves. If a wave needs a different specialty, shut down the unneeded implementer and spawn a new specialist
-4. **Shutdown** — `SendMessage` with `type: "shutdown_request"` to each implementer when all their work is reviewed and done
-5. **Delete** — `TeamDelete` after all members confirm shutdown
+1. **Create** -- `TeamCreate` at start of plan execution
+2. **Spawn** -- specialists for wave 1 tasks, each with `isolation: "worktree"`
+3. **Reuse** -- message existing implementers with new tasks for subsequent waves. If a wave needs a different specialty, shut down the unneeded implementer and spawn a new specialist
+4. **Shutdown** -- `SendMessage` with `type: "shutdown_request"` to each implementer when all their work is reviewed and done
+5. **Delete** -- `TeamDelete` after all members confirm shutdown
 
 ## Integration
 
 **Before this skill:**
-- **superpowers:using-git-worktrees** — Isolated workspace before starting
-- **superpowers:writing-plans** — Creates the plan this skill executes
+- **superpowers:using-git-worktrees** -- Isolated workspace before starting
+- **superpowers:composing-teams** -- Assembles the team roster with agent definitions
+- **superpowers:writing-plans** -- Creates the plan this skill executes
 
 **During this skill:**
-- **superpowers:test-driven-development** — Implementers follow TDD
-- **superpowers:requesting-code-review** — Review methodology for quality reviewers
+- **superpowers:test-driven-development** -- Implementers follow TDD
+- **superpowers:requesting-code-review** -- Review methodology for quality reviewers
 
 **After this skill:**
-- **superpowers:finishing-a-development-branch** — Merge/PR/cleanup decision
+- **superpowers:finishing-a-development-branch** -- Merge/PR/cleanup decision
 
 **Alternative approaches:**
-- **superpowers:subagent-driven-development** — Serial execution, simpler, no team overhead
-- **superpowers:executing-plans** — Parallel session instead of same-session
+- **superpowers:subagent-driven-development** -- Serial execution, simpler, no team overhead
+- **superpowers:executing-plans** -- Parallel session instead of same-session
