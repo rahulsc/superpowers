@@ -90,6 +90,16 @@ When multiple skills could apply, use this order:
 
 The skill itself tells you which.
 
+## Team-Aware Skills
+
+Superpowers supports multi-agent team execution for parallelizable work:
+
+- **composing-teams** — Discovers available agent definitions, lets you select specialists and team size
+- **agent-team-driven-development** — Orchestrates persistent specialist agents working in parallel across waves
+- **writing-plans** — Creates implementation plans with optional wave analysis for team execution
+
+Agent teams are experimental and require the `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` setting. See [Claude Code agent teams docs](https://code.claude.com/docs/en/agent-teams) for setup.
+
 ## User Instructions
 
 Instructions say WHAT, not HOW. "Add X" or "Fix Y" doesn't mean skip workflows.

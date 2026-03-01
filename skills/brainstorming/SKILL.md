@@ -28,7 +28,9 @@ You MUST create a task for each of these items and complete them in order:
 3. **Propose 2-3 approaches** — with trade-offs and your recommendation
 4. **Present design** — in sections scaled to their complexity, get user approval after each section
 5. **Write design doc** — save to `docs/plans/YYYY-MM-DD-<topic>-design.md` and commit
-6. **Transition to implementation** — invoke writing-plans skill to create implementation plan
+6. **Create worktree** — create project worktree via using-git-worktrees, record path in design doc
+7. **Compose team** — invoke composing-teams if work benefits from specialist agents
+8. **Transition to implementation** — invoke writing-plans skill to create implementation plan
 
 ## Process Flow
 
@@ -40,7 +42,10 @@ digraph brainstorming {
     "Present design sections" [shape=box];
     "User approves design?" [shape=diamond];
     "Write design doc" [shape=box];
-    "Invoke writing-plans skill" [shape=doublecircle];
+    "Create worktree" [shape=box];
+    "Compose team?" [shape=diamond];
+    "Invoke composing-teams" [shape=box];
+    "Invoke writing-plans" [shape=doublecircle];
 
     "Explore project context" -> "Ask clarifying questions";
     "Ask clarifying questions" -> "Propose 2-3 approaches";
@@ -48,11 +53,15 @@ digraph brainstorming {
     "Present design sections" -> "User approves design?";
     "User approves design?" -> "Present design sections" [label="no, revise"];
     "User approves design?" -> "Write design doc" [label="yes"];
-    "Write design doc" -> "Invoke writing-plans skill";
+    "Write design doc" -> "Create worktree";
+    "Create worktree" -> "Compose team?";
+    "Compose team?" -> "Invoke composing-teams" [label="yes"];
+    "Compose team?" -> "Invoke writing-plans" [label="no"];
+    "Invoke composing-teams" -> "Invoke writing-plans";
 }
 ```
 
-**The terminal state is invoking writing-plans.** Do NOT invoke frontend-design, mcp-builder, or any other implementation skill. The ONLY skill you invoke after brainstorming is writing-plans.
+After design approval: create a worktree (using-git-worktrees), optionally invoke composing-teams if the work benefits from specialist agents, then invoke writing-plans.
 
 ## The Process
 
@@ -83,8 +92,7 @@ digraph brainstorming {
 - Commit the design document to git
 
 **Implementation:**
-- Invoke the writing-plans skill to create a detailed implementation plan
-- Do NOT invoke any other skill. writing-plans is the next step.
+- Create a worktree via using-git-worktrees. If the design would benefit from specialist agents (multiple components, parallelizable work, distinct expertise needed), invoke composing-teams to assemble a team roster. Then invoke writing-plans to create the implementation plan.
 
 ## Key Principles
 
