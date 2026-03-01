@@ -60,7 +60,7 @@ digraph process {
 
     "Read plan, extract all tasks with full text, note context, create tasks with TaskCreate" [shape=box];
     "More tasks remain?" [shape=diamond];
-    "Dispatch final code reviewer subagent for entire implementation" [shape=box];
+    "Dispatch final code reviewer subagent (whole feature, all tasks)" [shape=box];
     "Use superpowers:finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
 
     "Read plan, extract all tasks with full text, note context, create tasks with TaskCreate" -> "Dispatch implementer subagent (./implementer-prompt.md)";
@@ -79,10 +79,53 @@ digraph process {
     "Code quality reviewer subagent approves?" -> "Mark task complete with TaskUpdate" [label="yes"];
     "Mark task complete with TaskUpdate" -> "More tasks remain?";
     "More tasks remain?" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="yes"];
-    "More tasks remain?" -> "Dispatch final code reviewer subagent for entire implementation" [label="no"];
-    "Dispatch final code reviewer subagent for entire implementation" -> "Use superpowers:finishing-a-development-branch";
+    "More tasks remain?" -> "Dispatch final code reviewer subagent (whole feature, all tasks)" [label="no"];
+    "Dispatch final code reviewer subagent (whole feature, all tasks)" -> "Use superpowers:finishing-a-development-branch";
 }
 ```
+
+## Evidence Requirements
+
+Implementers MUST provide evidence before the controller marks a task complete. See `superpowers:verification-before-completion` for the canonical evidence format.
+
+**Required per task:**
+
+| Evidence | Type | Contents |
+|----------|------|---------|
+| Test output | Command | Test command, verbatim output, exit code |
+| Commit | Diff | `git diff --stat`, commit SHA |
+
+**TDD gate:** Before marking implementation complete, verify RED evidence (test fails for right reason) then GREEN evidence (test passes). Both must exist. See `superpowers:test-driven-development` for Solo TDD mode details.
+
+**Rejection rule:** Any completion report missing command + diff evidence is rejected: "Missing evidence. Required: command (test output) + diff (commit SHA)."
+
+## State Integration
+
+After each task completes, update `.superpowers/state.yml`:
+
+```yaml
+plan:
+  completed_tasks: [1, 2, 3]  # append task number
+```
+
+On session start (or cold resume), read state.yml to find `plan.completed_tasks` and skip already-completed tasks. This enables cross-session continuity without re-executing work.
+
+If using directory-based plans (`docs/plans/<project>/tasks/`), load individual task files rather than the full plan — approximately 2.7x token savings for large plans.
+
+## Re-Review Loop Bound
+
+After 3 rejection cycles on the same task (spec or quality), stop looping and escalate:
+- Report to the user with the full rejection history
+- Ask whether to continue, reassign, or adjust the spec
+- Do NOT silently loop a 4th time
+
+## Pre-Flight Context Check
+
+Before dispatching each new implementer subagent, check context utilization. If below ~50% context remaining:
+- Run `/compact` to compress conversation history
+- Then dispatch the subagent
+
+Skipping this causes subagent failures mid-task when the parent context fills.
 
 ## Agent-Aware Dispatch
 
@@ -92,6 +135,12 @@ When a team roster exists (from composing-teams), use the specified agent defini
 - If the roster specifies a model for the agent, use that model
 - If no model is specified or `model: inherit`, use the most powerful available model
 - Reviewer subagents still use their standard definitions (`general-purpose` for spec, `superpowers:code-reviewer` for quality)
+
+## Review Tiering
+
+For simple, low-risk tasks: light review (spec compliance only, skip code quality round).
+For default tasks: standard two-stage review (spec compliance, then code quality).
+For auth/payment/data tasks: critical — add a security-focused review pass after code quality.
 
 ## Prompt Templates
 
@@ -130,7 +179,9 @@ Spec reviewer: ✅ Spec compliant - all requirements met, nothing extra
 [Get git SHAs, dispatch code quality reviewer]
 Code reviewer: Strengths: Good test coverage, clean. Issues: None. Approved.
 
-[Mark Task 1 complete]
+[Verify evidence: Command (5/5 tests pass, exit 0) + Diff (SHA: abc1234, 3 files changed)]
+[Update state.yml: plan.completed_tasks: [1]]
+[Mark Task 1 complete with TaskUpdate]
 
 Task 2: Recovery modes
 
@@ -164,12 +215,14 @@ Implementer: Extracted PROGRESS_INTERVAL constant
 [Code reviewer reviews again]
 Code reviewer: ✅ Approved
 
-[Mark Task 2 complete]
+[Verify evidence: Command (8/8 tests pass, exit 0) + Diff (SHA: def5678, 4 files changed)]
+[Update state.yml: plan.completed_tasks: [1, 2]]
+[Mark Task 2 complete with TaskUpdate]
 
 ...
 
 [After all tasks]
-[Dispatch final code-reviewer]
+[Dispatch final code-reviewer: review entire feature, all tasks, all commits]
 Final reviewer: All requirements met, ready to merge
 
 Done!
@@ -211,7 +264,7 @@ Done!
 
 **Never:**
 - Start implementation on main/master branch without explicit user consent
-- Skip reviews (spec compliance OR code quality)
+- Skip reviews (spec compliance OR code quality) — **NEVER rationalize skipping because a task "seems straightforward"**
 - Proceed with unfixed issues
 - Dispatch multiple implementation subagents in parallel (conflicts)
 - Make subagent read plan file (provide full text instead)
@@ -222,6 +275,8 @@ Done!
 - Let implementer self-review replace actual review (both are needed)
 - **Start code quality review before spec compliance is ✅** (wrong order)
 - Move to next task while either review has open issues
+- Mark task complete without command evidence (test output) + diff evidence (commit SHA)
+- Mark task complete without RED + GREEN TDD evidence
 
 **If subagent asks questions:**
 - Answer clearly and completely
