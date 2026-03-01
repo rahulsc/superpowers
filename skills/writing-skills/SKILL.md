@@ -9,7 +9,7 @@ description: Use when creating new skills, editing existing skills, or verifying
 
 **Writing skills IS Test-Driven Development applied to process documentation.**
 
-**Personal skills live in agent-specific directories (`~/.claude/skills` for Claude Code, `~/.agents/skills/` for Codex)** 
+**Personal skills live in `~/.claude/skills/` for Claude Code. Check your platform's documentation for other environments.** 
 
 You write test cases (pressure scenarios with subagents), watch them fail (baseline behavior), write the skill (documentation), watch tests pass (agents comply), and refactor (close loopholes).
 
@@ -17,7 +17,7 @@ You write test cases (pressure scenarios with subagents), watch them fail (basel
 
 **REQUIRED BACKGROUND:** You MUST understand superpowers:test-driven-development before using this skill. That skill defines the fundamental RED-GREEN-REFACTOR cycle. This skill adapts TDD to documentation.
 
-**Official guidance:** For Anthropic's official skill authoring best practices, see anthropic-best-practices.md. This document provides additional patterns and guidelines that complement the TDD-focused approach in this skill.
+**Official guidance:** Anthropic's official skill authoring guide covers CSO, frontmatter rules, token efficiency, and content principles. Read it first: `skills/writing-skills/anthropic-best-practices.md` (bundled, 52KB). Key differences from Anthropic's guide: this skill adds TDD discipline (RED-GREEN-REFACTOR for skills), rationalization tables, and red-flag lists — patterns that go beyond Anthropic's baseline.
 
 ## What is a Skill?
 
@@ -313,7 +313,7 @@ digraph when_flowchart {
 - Linear instructions → Numbered lists
 - Labels without semantic meaning (step1, helper2)
 
-See @graphviz-conventions.dot for graphviz style rules.
+See `skills/writing-skills/graphviz-conventions.dot` for graphviz style rules.
 
 **Visualizing for the user:** Use `render-graphs.js` in this directory to render a skill's flowcharts to SVG:
 ```bash
@@ -371,6 +371,30 @@ pptx/
 ```
 When: Reference material too large for inline
 
+## When to Split vs Combine Skills
+
+**Split into separate skills when:**
+- Two techniques are independently useful (someone might want one without the other)
+- Combined skill would exceed ~400 lines
+- Different triggering conditions (different CSO descriptions needed)
+
+**Keep as one skill when:**
+- Techniques always used together
+- One technique is a prerequisite for the other
+- Splitting would create orphan skills nobody loads alone
+
+Example: `test-driven-development` and `testing-anti-patterns` are separate because anti-patterns is reference material loaded on demand. But the TDD cycle itself stays in one skill.
+
+## Skill Versioning
+
+Skills evolve. When making breaking changes (removing a section, changing a core rule):
+
+1. Note the change in the commit message — skills don't have changelogs
+2. If the old behavior was explicitly documented as correct, add a brief "Previously..." note so agents reading cached versions understand the change
+3. Bump the version field in frontmatter if your skill uses one (optional; Superpowers skills use git history)
+
+Breaking changes to discipline-enforcing skills require re-running baseline tests — agents may have learned the old rules.
+
 ## The Iron Law (Same as TDD)
 
 ```
@@ -382,15 +406,18 @@ This applies to NEW skills AND EDITS to existing skills.
 Write skill before testing? Delete it. Start over.
 Edit skill without testing? Same violation.
 
-**No exceptions:**
+**Testing overhead scales with skill type:**
+- **Discipline-enforcing skills** (TDD, verification, code review): Full pressure testing with multiple combined pressures. No exceptions.
+- **Technique skills** (how-to guides): Application and variation scenarios.
+- **Reference skills** (API docs, quick-reference tables): Lighter testing — retrieval scenario (can the agent find the right info?) + one application scenario. A full pressure test is not required for pure reference material.
+
+**No exceptions for discipline skills:**
 - Not for "simple additions"
 - Not for "just adding a section"
-- Not for "documentation updates"
 - Don't keep untested changes as "reference"
-- Don't "adapt" while running tests
 - Delete means delete
 
-**REQUIRED BACKGROUND:** The superpowers:test-driven-development skill explains why this matters. Same principles apply to documentation.
+**REQUIRED BACKGROUND:** Use `superpowers:test-driven-development` — same principles apply to documentation.
 
 ## Testing All Skill Types
 
@@ -553,7 +580,7 @@ Run same scenarios WITH skill. Agent should now comply.
 
 Agent found new rationalization? Add explicit counter. Re-test until bulletproof.
 
-**Testing methodology:** See @testing-skills-with-subagents.md for the complete testing methodology:
+**Testing methodology:** See `skills/writing-skills/testing-skills-with-subagents.md` for the complete testing methodology:
 - How to write pressure scenarios
 - Pressure types (time, sunk cost, authority, exhaustion)
 - Plugging holes systematically
@@ -561,22 +588,22 @@ Agent found new rationalization? Add explicit counter. Re-test until bulletproof
 
 ## Anti-Patterns
 
-### ❌ Narrative Example
+### Narrative Example (avoid)
 "In session 2025-10-03, we found empty projectDir caused..."
 **Why bad:** Too specific, not reusable
 
-### ❌ Multi-Language Dilution
+### Multi-Language Dilution (avoid)
 example-js.js, example-py.py, example-go.go
 **Why bad:** Mediocre quality, maintenance burden
 
-### ❌ Code in Flowcharts
+### Code in Flowcharts (avoid)
 ```dot
 step1 [label="import fs"];
 step2 [label="read file"];
 ```
 **Why bad:** Can't copy-paste, hard to read
 
-### ❌ Generic Labels
+### Generic Labels (avoid)
 helper1, helper2, step3, pattern4
 **Why bad:** Labels should have semantic meaning
 
