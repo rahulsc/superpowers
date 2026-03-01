@@ -40,7 +40,15 @@ Use Task tool with superpowers:code-reviewer type, fill template at `code-review
 - `{HEAD_SHA}` - Ending commit
 - `{DESCRIPTION}` - Brief summary
 
-**3. Act on feedback:**
+**3. Verify evidence from reviewer:**
+
+Reviewer reports must include **citation evidence** (file:line per requirement). Prose-only verdicts ("looks good", "all requirements met") are not sufficient — reject them:
+
+> "Please provide citation evidence: file:line reference and verdict per requirement."
+
+See `superpowers:verification-before-completion` for the canonical evidence format.
+
+**4. Act on feedback:**
 - Fix Critical issues immediately
 - Fix Important issues before proceeding
 - Note Minor issues for later
@@ -100,13 +108,35 @@ When operating in a team context, specialists can peer-review each other's work:
 - Cross-domain review catches integration issues early
 - Peer review supplements (does not replace) formal spec and code quality review
 
+## Re-Review Loop Bound
+
+After 3 rejection cycles on the same review (reviewer keeps finding new issues after fixes), stop and escalate to the user with the full rejection history. Do NOT silently loop a 4th time.
+
+## Uncommitted Changes Check
+
+Before dispatching any review, run `git status` to confirm all relevant changes are committed. Review against floating uncommitted changes produces incorrect verdicts.
+
+## Team Mode: Per-Implementer SHA
+
+In team execution, each implementer has their own branch. Use branch-specific SHAs — not main's HEAD — when dispatching review for a specific implementer's work:
+
+```bash
+BASE_SHA=$(git merge-base main <implementer-branch>)
+HEAD_SHA=$(git rev-parse <implementer-branch>)
+```
+
+## Security Review Tier
+
+For tasks touching auth, payment, or sensitive data: after standard code quality review, add a security-focused review pass. Dispatch with explicit instruction: "Focus on security: input validation, auth checks, data exposure, injection vectors."
+
 ## Red Flags
 
 **Never:**
-- Skip review because "it's simple"
+- Skip review because "it's simple" — **complexity is not the only reason reviews catch bugs**
 - Ignore Critical issues
 - Proceed with unfixed Important issues
 - Argue with valid technical feedback
+- Accept prose-only verdicts without citation evidence (file:line per requirement)
 
 **If reviewer wrong:**
 - Push back with technical reasoning
