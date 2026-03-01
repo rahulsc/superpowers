@@ -17,7 +17,7 @@ You write test cases (pressure scenarios with subagents), watch them fail (basel
 
 **REQUIRED BACKGROUND:** You MUST understand superpowers:test-driven-development before using this skill. That skill defines the fundamental RED-GREEN-REFACTOR cycle. This skill adapts TDD to documentation.
 
-**Official guidance:** Anthropic's official skill authoring guide covers CSO, frontmatter rules, token efficiency, and content principles. Read it first: `skills/writing-skills/anthropic-best-practices.md` (bundled, 52KB). Key differences from Anthropic's guide: this skill adds TDD discipline (RED-GREEN-REFACTOR for skills), rationalization tables, and red-flag lists — patterns that go beyond Anthropic's baseline.
+**Official guidance:** Anthropic's official skill authoring guide covers CSO, frontmatter rules, token efficiency, and content principles. Read it first: `skills/writing-skills/anthropic-best-practices.md` (bundled, 45KB). Key differences from Anthropic's guide: this skill adds TDD discipline (RED-GREEN-REFACTOR for skills), rationalization tables, and red-flag lists — patterns that go beyond Anthropic's baseline.
 
 ## What is a Skill?
 
@@ -275,7 +275,7 @@ wc -w skills/path/SKILL.md
 - `creating-skills`, `testing-skills`, `debugging-with-logs`
 - Active, describes the action you're taking
 
-### 4. Cross-Referencing Other Skills
+### 5. Cross-Referencing Other Skills
 
 **When writing documentation that references other skills:**
 

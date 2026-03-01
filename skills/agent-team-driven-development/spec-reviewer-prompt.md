@@ -6,7 +6,7 @@ Dispatch as a **subagent** (not a team member) for fresh, unbiased review.
 
 **Only dispatch after the implementer reports task completion with command evidence + diff evidence.**
 
-```
+```yaml
 Agent tool:
   subagent_type: superpowers:code-reviewer
   description: "Spec review: Task N"

@@ -420,13 +420,17 @@ The following issues were identified in `subagent-driven-development` but apply 
 
 ```yaml
 # .superpowers/state.yml
-active_plan: docs/plans/2026-02-28-agent-marketplace-implementation.md
-plan_status: executed          # pending | in_progress | executed
-current_task: null             # task ID if mid-execution
-worktree: null                 # path if active
+plan:
+  path: docs/plans/agent-marketplace/plan.md
+  status: executed          # pending | in_progress | executed
+  completed_tasks: [1, 2, 3, 4, 5]
+  current_wave: null
+worktree:
+  main:
+    path: /home/user/project/.worktrees/agent-marketplace
 team:
-  roster: null
-  wave: null
+  name: agent-marketplace-team
+  roster: []
 last_session: 2026-03-01T10:30:00Z
 ```
 
