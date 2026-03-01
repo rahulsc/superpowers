@@ -23,82 +23,116 @@ Every project goes through this process. A todo list, a single-function utility,
 
 You MUST create a task for each of these items and complete them in order:
 
-1. **Explore project context** — check files, docs, recent commits
-2. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria
-3. **Propose 2-3 approaches** — with trade-offs and your recommendation
-4. **Present design** — in sections scaled to their complexity, get user approval after each section
-5. **Write design doc** — save to `docs/plans/YYYY-MM-DD-<topic>-design.md` and commit
-6. **Create worktree** — create project worktree via using-git-worktrees, record path in design doc
-7. **Compose team** — invoke composing-teams if work benefits from specialist agents
-8. **Transition to implementation** — invoke writing-plans skill to create implementation plan
+1. **Explore project context** — check files, docs, recent commits; search for existing solutions before designing
+2. **Challenge assumptions** — ask: Is this the right problem? Are there simpler alternatives?
+3. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria
+4. **Propose 2-3 approaches** — with trade-offs and your recommendation
+5. **Present design** — in sections scaled to their complexity, get user approval after each section
+6. **Write design doc** — save to `docs/plans/<project>/design.md` and commit; write `design.approved: true` to `.superpowers/state.yml`
+7. **Create worktree** — create project worktree via using-git-worktrees, record path in state.yml
+8. **Compose team?** — apply the decision framework below; invoke composing-teams only if criteria met
+9. **Transition to implementation** — invoke writing-plans skill to create implementation plan
 
 ## Process Flow
 
 ```dot
 digraph brainstorming {
-    "Explore project context" [shape=box];
+    "Explore context + search for existing solutions" [shape=box];
+    "Challenge assumptions" [shape=box];
     "Ask clarifying questions" [shape=box];
     "Propose 2-3 approaches" [shape=box];
     "Present design sections" [shape=box];
     "User approves design?" [shape=diamond];
-    "Write design doc" [shape=box];
+    "Write design doc to docs/plans/<project>/design.md" [shape=box];
+    "Write state.yml: phase=brainstorming, design.approved=true" [shape=box];
     "Create worktree" [shape=box];
-    "Compose team?" [shape=diamond];
+    "4+ tasks AND 2+ independent AND 2+ specialist domains?" [shape=diamond];
     "Invoke composing-teams" [shape=box];
     "Invoke writing-plans" [shape=doublecircle];
 
-    "Explore project context" -> "Ask clarifying questions";
+    "Explore context + search for existing solutions" -> "Challenge assumptions";
+    "Challenge assumptions" -> "Ask clarifying questions";
     "Ask clarifying questions" -> "Propose 2-3 approaches";
     "Propose 2-3 approaches" -> "Present design sections";
     "Present design sections" -> "User approves design?";
     "User approves design?" -> "Present design sections" [label="no, revise"];
-    "User approves design?" -> "Write design doc" [label="yes"];
-    "Write design doc" -> "Create worktree";
-    "Create worktree" -> "Compose team?";
-    "Compose team?" -> "Invoke composing-teams" [label="yes"];
-    "Compose team?" -> "Invoke writing-plans" [label="no"];
+    "User approves design?" -> "Write design doc to docs/plans/<project>/design.md" [label="yes"];
+    "Write design doc to docs/plans/<project>/design.md" -> "Write state.yml: phase=brainstorming, design.approved=true";
+    "Write state.yml: phase=brainstorming, design.approved=true" -> "Create worktree";
+    "Create worktree" -> "4+ tasks AND 2+ independent AND 2+ specialist domains?";
+    "4+ tasks AND 2+ independent AND 2+ specialist domains?" -> "Invoke composing-teams" [label="yes"];
+    "4+ tasks AND 2+ independent AND 2+ specialist domains?" -> "Invoke writing-plans" [label="no"];
     "Invoke composing-teams" -> "Invoke writing-plans";
 }
 ```
 
-After design approval: create a worktree (using-git-worktrees), optionally invoke composing-teams if the work benefits from specialist agents, then invoke writing-plans.
-
 ## The Process
 
-**Understanding the idea:**
-- Check out the current project state first (files, docs, recent commits)
-- Ask questions one at a time to refine the idea
-- Prefer multiple choice questions when possible, but open-ended is fine too
-- Only one question per message - if a topic needs more exploration, break it into multiple questions
-- Focus on understanding: purpose, constraints, success criteria
+**Step 1 — Explore and research:**
+- Check current project state: files, docs, recent commits
+- Search for existing solutions on GitHub/web before designing new ones
+- A solution that already exists is often better than a custom one
 
-**Exploring approaches:**
+**Step 2 — Challenge assumptions:**
+- Before accepting the user's framing, ask: Is this the right problem to solve?
+- Are there simpler alternatives that avoid the complexity entirely?
+- Only one challenge at a time — don't barrage with questions
+
+**Step 3 — Ask clarifying questions:**
+- One at a time, understand purpose, constraints, success criteria
+- Prefer multiple choice when possible, open-ended is fine too
+
+**Step 4 — Explore approaches:**
 - Propose 2-3 different approaches with trade-offs
-- Present options conversationally with your recommendation and reasoning
 - Lead with your recommended option and explain why
 
-**Presenting the design:**
-- Once you believe you understand what you're building, present the design
+**Step 5 — Present design:**
 - Scale each section to its complexity: a few sentences if straightforward, up to 200-300 words if nuanced
 - Ask after each section whether it looks right so far
 - Cover: architecture, components, data flow, error handling, testing
-- Be ready to go back and clarify if something doesn't make sense
+- Be ready to revise based on feedback
 
 ## After the Design
 
-**Documentation:**
-- Write the validated design to `docs/plans/YYYY-MM-DD-<topic>-design.md`
-- Use elements-of-style:writing-clearly-and-concisely skill if available
+**Documentation (step 6):**
+- Write the validated design to `docs/plans/<project>/design.md` (directory-based, never overwritten by later skills)
 - Commit the design document to git
+- Write `.superpowers/state.yml`:
+  ```yaml
+  phase: brainstorming
+  design:
+    path: docs/plans/<project>/design.md
+    approved: true
+    approved_at: <timestamp>
+  ```
 
-**Implementation:**
-- Create a worktree via using-git-worktrees. If the design would benefit from specialist agents (multiple components, parallelizable work, distinct expertise needed), invoke composing-teams to assemble a team roster. Then invoke writing-plans to create the implementation plan.
+**Worktree (step 7):**
+- Create worktree via `superpowers:using-git-worktrees`
+- State.yml is updated by that skill with `worktree.main.*`
+
+**Team decision (step 8):**
+
+Apply this structured decision framework — do NOT compose a team based on vibes:
+
+| Criterion | Threshold | Met? |
+|-----------|-----------|------|
+| Task count | 4+ distinct tasks | |
+| Independence | 2+ tasks can run in parallel | |
+| Specialist domains | 2+ distinct areas of expertise | |
+
+**Compose a team only if ALL three criteria are met.** Otherwise skip directly to writing-plans.
+
+**Implementation (step 9):**
+- Invoke `superpowers:writing-plans` to create the implementation plan
 
 ## Key Principles
 
-- **One question at a time** - Don't overwhelm with multiple questions
-- **Multiple choice preferred** - Easier to answer than open-ended when possible
-- **YAGNI ruthlessly** - Remove unnecessary features from all designs
-- **Explore alternatives** - Always propose 2-3 approaches before settling
-- **Incremental validation** - Present design, get approval before moving on
-- **Be flexible** - Go back and clarify when something doesn't make sense
+- **One question at a time** — Don't overwhelm with multiple questions
+- **Multiple choice preferred** — Easier to answer than open-ended when possible
+- **YAGNI ruthlessly** — Remove unnecessary features from all designs
+- **Research first** — Search for existing solutions before designing custom ones
+- **Challenge the problem** — Is this the right problem? Are there simpler alternatives?
+- **Explore alternatives** — Always propose 2-3 approaches before settling
+- **Incremental validation** — Present design, get approval before moving on
+- **Be flexible** — Go back and clarify when something doesn't make sense
+- **design.md is immutable** — Later skills (writing-plans, executors) must never overwrite it
