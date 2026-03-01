@@ -1,7 +1,7 @@
 # Skills Audit & Improvement — Design Document
 
 > **Date:** 2026-03-01
-> **Status:** Approved
+> **Status:** Approved — ready for worktree creation + team composition + writing-plans
 > **Approach:** Foundation First — build infrastructure that unblocks everything, then fix skills top-down
 > **Audit source:** `docs/plans/2026-03-01-skills-audit-brainstorm.md`
 
