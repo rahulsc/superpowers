@@ -70,7 +70,7 @@ Worktrees share the git repository but NOT untracked files. Copy these if they e
 
 ```bash
 # From the repo root (worktree.repo_root in state.yml):
-REPO_ROOT="$(git rev-parse --show-superproject-working-tree 2>/dev/null || git worktree list --porcelain | head -1 | sed 's/worktree //')"
+REPO_ROOT="$(git worktree list --porcelain | head -1 | sed 's/worktree //')"
 
 # Environment files
 [ -f "$REPO_ROOT/.env" ] && cp "$REPO_ROOT/.env" .
