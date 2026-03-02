@@ -226,7 +226,7 @@ If serial is the better fit, announce: *"After analyzing dependencies, this plan
 
 Include immediately after the header when Team Fitness Check passes.
 
-```markdown
+````markdown
 ## Wave Analysis
 
 ### Specialists
@@ -272,7 +272,7 @@ Wave 2: impl + QA tests W3
               ▼
 Wave 3: impl + QA verify all
 ```
-```
+````
 
 **Wave grouping rules:**
 - Tasks in the same wave MUST NOT touch the same files
