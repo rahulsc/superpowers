@@ -16,7 +16,7 @@ mkdir -p "$PROJECT_DIR/.superpowers"
 cat > "$PROJECT_DIR/.superpowers/state.yml" <<'EOF'
 design:
   approved: true
-  file: docs/plans/oauth/design.md
+  path: docs/oauth/design/
 EOF
 
 PROMPT="The design is approved and we're ready to write the plan. Please write the task breakdown plan for the OAuth2 login feature."

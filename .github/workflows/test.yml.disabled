@@ -1,0 +1,56 @@
+name: Superpowers Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  brainstorm-server:
+    name: Brainstorm Server (unit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: cd lib/brainstorm-server && npm install
+      - run: cd tests/brainstorm-server && npm install && npm test
+
+  skill-tests:
+    name: Skill Tests (Tier ${{ matrix.tier }})
+    runs-on: ubuntu-latest
+    needs: brainstorm-server
+    strategy:
+      fail-fast: false
+      matrix:
+        tier: [1, 2, 3]
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run Tier ${{ matrix.tier }} tests
+        run: |
+          unset CLAUDECODE
+          bash tests/run-all-tests.sh --tier ${{ matrix.tier }}
+        timeout-minutes: 45
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs-tier-${{ matrix.tier }}
+          path: /tmp/superpowers-tests/
+          retention-days: 7

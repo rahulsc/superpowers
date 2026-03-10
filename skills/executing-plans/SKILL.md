@@ -15,7 +15,7 @@ On every session start, check for `.superpowers/state.yml`:
 
 ```yaml
 plan:
-  path: docs/plans/my-feature/plan.md
+  path: docs/my-feature/plans/plan.md
   completed_tasks: [1, 2, 3]
   total_tasks: 6
 ```
@@ -26,7 +26,7 @@ If resuming, announce: "Resuming from task 4 of 6 (tasks 1-3 complete)." Load th
 
 ### Step 1: Load and Review Plan
 
-Read the plan from `plan.path` in state.yml (or as provided by the user). If directory-based (`docs/plans/<project>/`), load task files individually as you reach them.
+Read the plan from `plan.path` in state.yml (or as provided by the user). If directory-based (`docs/<project>/plans/`), load task files individually as you reach them.
 
 Review critically. If concerns exist, raise them before starting. If no concerns, create tasks with TaskCreate and proceed.
 

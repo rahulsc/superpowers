@@ -1,6 +1,6 @@
 phase: executing
 plan:
-  path: docs/plans/feature/plan.md
+  path: docs/feature/plans/plan.md
   status: executing
   completed_tasks: [1, 2, 3]
   current_wave: 2

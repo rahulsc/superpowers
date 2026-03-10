@@ -18,8 +18,8 @@ mkdir -p "$PROJECT_DIR"
 cp -r "$FIXTURES_DIR/project-scaffold/." "$PROJECT_DIR/"
 
 # Copy plan into expected location
-mkdir -p "$PROJECT_DIR/docs/plans/feature"
-cp "$FIXTURES_DIR/plan.md" "$PROJECT_DIR/docs/plans/feature/plan.md"
+mkdir -p "$PROJECT_DIR/docs/feature/plans"
+cp "$FIXTURES_DIR/plan.md" "$PROJECT_DIR/docs/feature/plans/plan.md"
 
 # Set up state.yml — agent should read this to find resume point
 mkdir -p "$PROJECT_DIR/.superpowers"

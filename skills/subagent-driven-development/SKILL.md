@@ -142,12 +142,12 @@ After each task completes, update `.superpowers/state.yml`:
 
 ```yaml
 plan:
-  path: docs/plans/my-feature/plan.md
+  path: docs/my-feature/plans/plan.md
   completed_tasks: [1, 2, 3]  # append task number
   total_tasks: 6
 ```
 
-If using directory-based plans (`docs/plans/<project>/tasks/`), load individual task files rather than the full plan -- approximately 2.7x token savings for large plans.
+If using directory-based plans (`docs/<project>/plans/tasks/`), load individual task files rather than the full plan -- approximately 2.7x token savings for large plans.
 
 ### Cold Resume
 
@@ -201,7 +201,7 @@ For auth/payment/data tasks: critical — add a security-focused review pass aft
 ```
 You: I'm using Subagent-Driven Development to execute this plan.
 
-[Read plan file once: docs/plans/feature-plan.md]
+[Read plan file once: docs/feature/plans/plan.md]
 [Extract all 5 tasks with full text and context]
 [Create tasks with TaskCreate]
 

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Run superpowers test suite
+# Called by Claude Code hooks or directly from terminal
+#
+# Usage:
+#   ./hooks/run-tests              # run all tiers
+#   ./hooks/run-tests --tier 1     # run specific tier
+#   ./hooks/run-tests --tier 2
+#   ./hooks/run-tests --tier 3
+#
+# Tiers:
+#   1 = Skill triggering + explicit requests (fast, ~5min)
+#   2 = Pressure/behavior tests (medium, ~15min)
+#   3 = E2E workflow chains (slow, ~30min)
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+# Must unset CLAUDECODE to allow nested claude -p calls
+unset CLAUDECODE 2>/dev/null || true
+
+# Pass through any args (e.g. --tier 1)
+exec bash "${PLUGIN_ROOT}/tests/run-all-tests.sh" "$@"

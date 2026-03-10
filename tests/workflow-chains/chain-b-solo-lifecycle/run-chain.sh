@@ -22,8 +22,8 @@ mkdir -p "$WORK_DIR"
 
 # Copy project scaffold
 cp -r "$CHAIN_DIR/fixtures/project-scaffold/." "$WORK_DIR/"
-mkdir -p "$WORK_DIR/docs/plans"
-cp "$CHAIN_DIR/fixtures/design.md" "$WORK_DIR/docs/plans/design.md"
+mkdir -p "$WORK_DIR/docs/auth-service/design"
+cp "$CHAIN_DIR/fixtures/design.md" "$WORK_DIR/docs/auth-service/design/design.md"
 
 # Set up git repo
 setup_git_repo "$WORK_DIR"
@@ -33,7 +33,7 @@ mkdir -p "$WORK_DIR/.superpowers"
 cat > "$WORK_DIR/.superpowers/state.yml" <<'EOF'
 design:
   approved: true
-  file: docs/plans/design.md
+  path: docs/auth-service/design/
 phase: planning
 EOF
 

@@ -12,8 +12,8 @@ setup_node_project "$PROJECT_DIR"
 setup_git_repo "$PROJECT_DIR"
 
 # Create plan with 5 tasks
-mkdir -p "$PROJECT_DIR/docs/plans/auth-system"
-cat > "$PROJECT_DIR/docs/plans/auth-system/plan.md" <<'EOF'
+mkdir -p "$PROJECT_DIR/docs/auth-system/plans"
+cat > "$PROJECT_DIR/docs/auth-system/plans/plan.md" <<'EOF'
 # Auth System Plan
 
 ## Task 1: Create user model
@@ -36,7 +36,7 @@ EOF
 mkdir -p "$PROJECT_DIR/.superpowers"
 cat > "$PROJECT_DIR/.superpowers/state.yml" <<'EOF'
 plan:
-  file: docs/plans/auth-system/plan.md
+  path: docs/auth-system/plans/plan.md
 tasks:
   - id: 1
     status: completed
@@ -55,7 +55,7 @@ tasks:
     subject: Write integration tests
 EOF
 
-PROMPT="Please continue executing the plan at docs/plans/auth-system/plan.md."
+PROMPT="Please continue executing the plan at docs/auth-system/plans/plan.md."
 
 RESULT=$(run_pressure_test "executing-plans" "$PROMPT" 6 "e4-cold-resume")
 

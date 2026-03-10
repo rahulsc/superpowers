@@ -7,7 +7,7 @@ description: "You MUST use this before any creative work - creating features, bu
 
 ## Overview
 
-Help turn ideas into fully formed designs and specs through natural collaborative dialogue.
+Help turn ideas into fully formed designs through natural collaborative dialogue.
 
 **Announce at start:** "I'm using the brainstorming skill to explore and design before implementing."
 
@@ -35,8 +35,8 @@ You MUST create a task for each of these items and complete them in order:
 4. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria
 5. **Propose 2-3 approaches** — with trade-offs and your recommendation
 6. **Present design** — in sections scaled to their complexity, design for isolation and clarity, get user approval after each section
-7. **Write design doc** — save to `docs/plans/<project>/design.md` and commit; write `design.approved: true` to `.superpowers/state.yml`
-8. **Spec review loop** — dispatch reviewer subagent, iterate until approved (max 5 rounds)
+7. **Write design doc** — save to `docs/<project>/design/design.md` and commit; write `design.approved: true` to `.superpowers/state.yml`
+8. **Design review loop** — dispatch reviewer subagent, iterate until approved (max 5 rounds)
 9. **Create worktree** — create project worktree via using-git-worktrees, record path in state.yml
 10. **Compose team?** — apply the decision framework below; invoke superpowers:composing-teams only if criteria met; transition to implementation via superpowers:writing-plans
 
@@ -52,9 +52,9 @@ digraph brainstorming {
     "Propose 2-3 approaches" [shape=box];
     "Present design sections\n(design for isolation and clarity)" [shape=box];
     "User approves design?" [shape=diamond];
-    "Write design doc to docs/plans/<project>/design.md" [shape=box];
+    "Write design to docs/<project>/design/" [shape=box];
     "Write state.yml: phase=brainstorming, design.approved=true" [shape=box];
-    "Dispatch spec reviewer" [shape=box];
+    "Dispatch design reviewer" [shape=box];
     "Reviewer approved?" [shape=diamond];
     "Fix issues, re-dispatch\n(max 5 iterations)" [shape=box];
     "Create worktree" [shape=box];
@@ -71,10 +71,10 @@ digraph brainstorming {
     "Propose 2-3 approaches" -> "Present design sections\n(design for isolation and clarity)";
     "Present design sections\n(design for isolation and clarity)" -> "User approves design?";
     "User approves design?" -> "Present design sections\n(design for isolation and clarity)" [label="no, revise"];
-    "User approves design?" -> "Write design doc to docs/plans/<project>/design.md" [label="yes"];
-    "Write design doc to docs/plans/<project>/design.md" -> "Write state.yml: phase=brainstorming, design.approved=true";
-    "Write state.yml: phase=brainstorming, design.approved=true" -> "Dispatch spec reviewer";
-    "Dispatch spec reviewer" -> "Reviewer approved?";
+    "User approves design?" -> "Write design to docs/<project>/design/" [label="yes"];
+    "Write design to docs/<project>/design/" -> "Write state.yml: phase=brainstorming, design.approved=true";
+    "Write state.yml: phase=brainstorming, design.approved=true" -> "Dispatch design reviewer";
+    "Dispatch design reviewer" -> "Reviewer approved?";
     "Reviewer approved?" -> "Fix issues, re-dispatch\n(max 5 iterations)" [label="issues found"];
     "Reviewer approved?" -> "Create worktree" [label="approved"];
     "Fix issues, re-dispatch\n(max 5 iterations)" -> "Reviewer approved?";
@@ -92,7 +92,7 @@ digraph brainstorming {
 - Search for existing solutions on GitHub/web before designing new ones
 - A solution that already exists is often better than a custom one
 - Before asking detailed questions, assess scope: if the request describes multiple independent subsystems (e.g., "build a platform with chat, file storage, billing, and analytics"), flag this immediately. Don't spend questions refining details of a project that needs to be decomposed first.
-- If the project is too large for a single spec, help the user decompose into sub-projects: what are the independent pieces, how do they relate, what order should they be built? Then brainstorm the first sub-project through the normal design flow. Each sub-project gets its own spec, plan, and implementation cycle.
+- If the project is too large for a single design, help the user decompose into sub-projects: what are the independent pieces, how do they relate, what order should they be built? Then brainstorm the first sub-project through the normal design flow. Each sub-project gets its own design, plan, and implementation cycle.
 
 **Step 2 — Offer visual companion:**
 - When you anticipate that upcoming questions will involve visual content (mockups, layouts, diagrams), offer the visual companion once for consent
@@ -137,22 +137,23 @@ digraph brainstorming {
 ## After the Design
 
 **Documentation (step 7):**
-- Write the validated design to `docs/plans/<project>/design.md` (directory-based, never overwritten by later skills)
-- Commit the design document to git
+- Write the validated design to `docs/<project>/design/design.md` (never overwritten by later skills)
+- If the design is too large for a single file, split into focused sections within `docs/<project>/design/` (e.g., `overview.md`, `data-model.md`, `api.md`). Each file should fit comfortably in context.
+- Commit the design document(s) to git
 - Write `.superpowers/state.yml`:
   ```yaml
   phase: brainstorming
   design:
-    path: docs/plans/<project>/design.md
+    path: docs/<project>/design/
     approved: true
     approved_at: <timestamp>
   ```
 
-**Spec Review Loop (step 8):**
+**Design Review Loop (step 8):**
 
 After writing the design document:
 
-1. Dispatch spec-document-reviewer subagent (see `skills/brainstorming/spec-document-reviewer-prompt.md`)
+1. Dispatch design-document-reviewer subagent (see `skills/brainstorming/design-document-reviewer-prompt.md`)
 2. If Issues Found: fix the design doc, re-dispatch reviewer, repeat until Approved
 3. If the loop exceeds 5 iterations, surface to the user for guidance
 
@@ -222,4 +223,4 @@ If they agree to the companion, read the detailed guide before proceeding:
 - **superpowers:using-git-worktrees** — Creates isolated workspace
 
 **Writes to state.yml:** `phase: brainstorming`, `design.path`, `design.approved`, `design.approved_at`
-**Creates:** `docs/plans/<project>/design.md`
+**Creates:** `docs/<project>/design/` (contains `design.md`, or multiple files when split)

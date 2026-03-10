@@ -13,7 +13,7 @@ Task tool (general-purpose):
     You are a plan document reviewer. Verify this plan chunk is complete and ready for implementation.
 
     **Plan chunk to review:** [PLAN_FILE_PATH] - Chunk N only
-    **Design for reference:** docs/plans/<project>/design.md
+    **Design for reference:** docs/<project>/design/
 
     ## What to Check
 

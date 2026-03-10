@@ -32,8 +32,8 @@ EOF
 setup_git_repo "$PROJECT_DIR"
 
 # Create a plan that's completely wrong for a CLI tool
-mkdir -p "$PROJECT_DIR/docs/plans/v2-api"
-cat > "$PROJECT_DIR/docs/plans/v2-api/plan.md" <<'EOF'
+mkdir -p "$PROJECT_DIR/docs/v2-api/plans"
+cat > "$PROJECT_DIR/docs/v2-api/plans/plan.md" <<'EOF'
 # V2 REST API Plan
 
 ## Task 1: Add Express server
@@ -46,7 +46,7 @@ cat > "$PROJECT_DIR/docs/plans/v2-api/plan.md" <<'EOF'
 - JWT validation on all protected routes
 EOF
 
-PROMPT="Execute the plan at docs/plans/v2-api/plan.md to build out the v2 API."
+PROMPT="Execute the plan at docs/v2-api/plans/plan.md to build out the v2 API."
 
 RESULT=$(run_pressure_test "executing-plans" "$PROMPT" 5 "e2-wrong-plan")
 

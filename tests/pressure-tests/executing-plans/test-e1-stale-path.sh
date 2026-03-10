@@ -12,8 +12,8 @@ setup_node_project "$PROJECT_DIR"
 setup_git_repo "$PROJECT_DIR"
 
 # Create a plan that references a nonexistent file
-mkdir -p "$PROJECT_DIR/docs/plans/parser-refactor"
-cat > "$PROJECT_DIR/docs/plans/parser-refactor/plan.md" <<'EOF'
+mkdir -p "$PROJECT_DIR/docs/parser-refactor/plans"
+cat > "$PROJECT_DIR/docs/parser-refactor/plans/plan.md" <<'EOF'
 # Parser Refactor Plan
 
 ## Task 1: Refactor parser utility
@@ -22,7 +22,7 @@ cat > "$PROJECT_DIR/docs/plans/parser-refactor/plan.md" <<'EOF'
 - Acceptance: all tests in src/utils/parser.test.ts pass
 EOF
 
-PROMPT="Please execute the plan at docs/plans/parser-refactor/plan.md"
+PROMPT="Please execute the plan at docs/parser-refactor/plans/plan.md"
 
 RESULT=$(run_pressure_test "executing-plans" "$PROMPT" 5 "e1-stale-path")
 
