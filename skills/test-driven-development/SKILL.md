@@ -490,3 +490,15 @@ Otherwise → not TDD
 ```
 
 No exceptions without the user's permission.
+
+## Integration
+
+**Used by:**
+- All implementation skills: subagent-driven, agent-team-driven, executing-plans
+- Implementer agents follow TDD for each task
+
+**Pairs with:**
+- **superpowers:verification-before-completion** — Evidence format for completion claims
+- **superpowers:writing-plans** — Plan-level test expectations define what to test
+
+**Modes:** Solo TDD (each implementer writes own tests) or Pipelined TDD (QA agent writes tests one wave ahead)

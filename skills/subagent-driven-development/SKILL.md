@@ -90,6 +90,39 @@ digraph process {
 }
 ```
 
+## Model Selection
+
+Use the least powerful model that can handle each role to conserve cost and increase speed.
+
+**Mechanical implementation tasks** (isolated functions, clear specs, 1-2 files): use a fast, cheap model. Most implementation tasks are mechanical when the plan is well-specified.
+
+**Integration and judgment tasks** (multi-file coordination, pattern matching, debugging): use a standard model.
+
+**Architecture, design, and review tasks**: use the most capable available model.
+
+**Task complexity signals:**
+- Touches 1-2 files with a complete spec -> cheap model
+- Touches multiple files with integration concerns -> standard model
+- Requires design judgment or broad codebase understanding -> most capable model
+
+## Implementer Status Protocol
+
+Implementer subagents report one of four statuses. Handle each appropriately:
+
+**DONE:** Proceed to spec compliance review.
+
+**DONE_WITH_CONCERNS:** The implementer completed the work but flagged doubts. Read the concerns before proceeding. If the concerns are about correctness or scope, address them before review. If they are observations (e.g., "this file is getting large"), note them and proceed to review.
+
+**NEEDS_CONTEXT:** The implementer needs information that was not provided. Provide the missing context and re-dispatch.
+
+**BLOCKED:** The implementer cannot complete the task. Assess the blocker:
+1. If it is a context problem, provide more context and re-dispatch with the same model
+2. If the task requires more reasoning, re-dispatch with a more capable model
+3. If the task is too large, break it into smaller pieces
+4. If the plan itself is wrong, escalate to the user
+
+**Never** ignore an escalation or force the same model to retry without changes. If the implementer said it is stuck, something needs to change.
+
 ## Evidence Requirements
 
 Implementers MUST provide evidence before the controller marks a task complete. See `superpowers:verification-before-completion` for the canonical evidence format.
@@ -111,12 +144,23 @@ After each task completes, update `.superpowers/state.yml`:
 
 ```yaml
 plan:
+  path: docs/my-feature/plans/plan.md
   completed_tasks: [1, 2, 3]  # append task number
+  total_tasks: 6
 ```
 
-On session start (or cold resume), read state.yml to find `plan.completed_tasks` and skip already-completed tasks. This enables cross-session continuity without re-executing work.
+If using directory-based plans (`docs/<project>/plans/tasks/`), load individual task files rather than the full plan -- approximately 2.7x token savings for large plans.
 
-If using directory-based plans (`docs/plans/<project>/tasks/`), load individual task files rather than the full plan — approximately 2.7x token savings for large plans.
+### Cold Resume
+
+On every session start, check for `.superpowers/state.yml`. If it exists and `plan.completed_tasks` is non-empty:
+
+1. Announce: "Resuming from task N of M (tasks 1..N-1 complete)."
+2. Load the plan from `plan.path`
+3. Skip already-completed tasks -- do not re-execute them
+4. Continue from the next incomplete task
+
+This enables cross-session continuity without re-executing work. If no state.yml exists, proceed normally from task 1.
 
 ## Re-Review Loop Bound
 
@@ -159,7 +203,7 @@ For auth/payment/data tasks: critical — add a security-focused review pass aft
 ```
 You: I'm using Subagent-Driven Development to execute this plan.
 
-[Read plan file once: docs/plans/feature-plan.md]
+[Read plan file once: docs/feature/plans/plan.md]
 [Extract all 5 tasks with full text and context]
 [Create tasks with TaskCreate]
 
@@ -265,6 +309,26 @@ Done!
 - Controller does more prep work (extracting all tasks upfront)
 - Review loops add iterations
 - But catches issues early (cheaper than debugging later)
+
+## Cross-Cutting Review Before Finishing
+
+After all tasks complete, before calling finishing-a-development-branch, run a final cross-cutting review:
+
+1. Read all changed files end-to-end
+2. Check: Do the pieces fit together? Any interface mismatches?
+3. Run full test suite (not just per-task tests)
+4. Check for regressions in unrelated code
+5. Report: "Cross-cutting review complete. [N files changed, full suite passes, no regressions]."
+
+This catches integration issues that per-task reviews miss.
+
+## Plan Revision Escalation
+
+If during execution you discover the plan is fundamentally wrong (not just a minor adjustment):
+- **STOP execution** -- do not silently deviate from the plan
+- **Report to the user:** what you found, why the plan needs revision, what you recommend
+- **Wait for approval** before continuing with a modified approach
+- Minor adjustments (file path changes, small API differences) are fine -- document them in the task completion report
 
 ## Red Flags
 

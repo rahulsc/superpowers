@@ -9,6 +9,8 @@ description: Use when encountering any bug, error, test failure, or unexpected b
 
 Random fixes waste time and create new bugs. Quick patches mask underlying issues.
 
+**Announce at start:** "I'm using the systematic-debugging skill to investigate this issue."
+
 **Core principle:** ALWAYS find root cause before attempting fixes. Symptom fixes are failure.
 
 **Violating the letter of this process is violating the spirit of debugging.**
@@ -238,7 +240,7 @@ When multiple independent root cause hypotheses exist in different subsystems:
 IF 2+ hypotheses are plausible AND
    each lives in a different subsystem/component:
 
-  Use dispatching-parallel-agents to investigate concurrently:
+  Use superpowers:dispatching-parallel-agents to investigate concurrently:
   - Each agent investigates one hypothesis in isolation
   - Agents report findings independently
   - Lead evaluates findings and identifies root cause
@@ -351,7 +353,7 @@ Available in this skill's directory:
 
 ## Team Context
 
-**Parallel investigation:** When multiple potential root causes exist in different subsystems, consider using `dispatching-parallel-agents` to investigate each hypothesis concurrently.
+**Parallel investigation:** When multiple potential root causes exist in different subsystems, consider using `superpowers:dispatching-parallel-agents` to investigate each hypothesis concurrently.
 
 **Team escalation:** When debugging blocks multiple team tasks, elevate to the team lead immediately rather than continuing to investigate alone. The lead can reassign dependent tasks or provide additional context.
 

@@ -1,18 +1,18 @@
-# Spec Document Reviewer Prompt Template
+# Design Document Reviewer Prompt Template
 
-Use this template when dispatching a spec document reviewer subagent.
+Use this template when dispatching a design document reviewer subagent.
 
-**Purpose:** Verify the spec is complete, consistent, and ready for implementation planning.
+**Purpose:** Verify the design is complete, consistent, and ready for implementation planning.
 
-**Dispatch after:** Spec document is written to docs/superpowers/specs/
+**Dispatch after:** Design document is written to `docs/<project>/design/`
 
 ```
 Task tool (general-purpose):
-  description: "Review spec document"
+  description: "Review design document"
   prompt: |
-    You are a spec document reviewer. Verify this spec is complete and ready for planning.
+    You are a design document reviewer. Verify this design is complete and ready for planning.
 
-    **Spec to review:** [SPEC_FILE_PATH]
+    **Design to review:** [DESIGN_FILE_PATH]
 
     ## What to Check
 
@@ -30,13 +30,13 @@ Task tool (general-purpose):
 
     Look especially hard for:
     - Any TODO markers or placeholder text
-    - Sections saying "to be defined later" or "will spec when X is done"
+    - Sections saying "to be defined later" or "will define when X is done"
     - Sections noticeably less detailed than others
     - Units that lack clear boundaries or interfaces — can you understand what each unit does without reading its internals?
 
     ## Output Format
 
-    ## Spec Review
+    ## Design Review
 
     **Status:** ✅ Approved | ❌ Issues Found
 
