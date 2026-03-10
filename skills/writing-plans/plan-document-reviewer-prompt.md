@@ -2,7 +2,7 @@
 
 Use this template when dispatching a plan document reviewer subagent.
 
-**Purpose:** Verify the plan chunk is complete, matches the spec, and has proper task decomposition.
+**Purpose:** Verify the plan chunk is complete, matches the design, and has proper task decomposition.
 
 **Dispatch after:** Each plan chunk is written
 
@@ -13,14 +13,14 @@ Task tool (general-purpose):
     You are a plan document reviewer. Verify this plan chunk is complete and ready for implementation.
 
     **Plan chunk to review:** [PLAN_FILE_PATH] - Chunk N only
-    **Spec for reference:** [SPEC_FILE_PATH]
+    **Design for reference:** docs/plans/<project>/design.md
 
     ## What to Check
 
     | Category | What to Look For |
     |----------|------------------|
     | Completeness | TODOs, placeholders, incomplete tasks, missing steps |
-    | Spec Alignment | Chunk covers relevant spec requirements, no scope creep |
+    | Design Alignment | Chunk covers relevant design requirements, no scope creep |
     | Task Decomposition | Tasks atomic, clear boundaries, steps actionable |
     | File Structure | Files have clear single responsibilities, split by responsibility not layer |
     | File Size | Would any new or modified file likely grow large enough to be hard to reason about as a whole? |
