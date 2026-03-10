@@ -7,6 +7,8 @@ description: Use when completing tasks, implementing major features, or before m
 
 Dispatch superpowers:code-reviewer subagent to catch issues before they cascade.
 
+**Announce at start:** "I'm using the requesting-code-review skill to get this code reviewed."
+
 **Core principle:** Review early, review often.
 
 ## When to Request Review

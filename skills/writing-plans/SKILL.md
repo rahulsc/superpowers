@@ -333,3 +333,18 @@ After saving the plan and writing state.yml, offer execution choice:
 **Automatic fallback:** If the harness does not support subagents (no TaskTool available), execution falls back to `superpowers:executing-plans` which runs tasks in the current session with batch checkpoints.
 
 After user chooses, update state.yml `plan.executor` field, then invoke the chosen execution skill.
+
+## Integration
+
+**Before this skill:**
+- **superpowers:brainstorming** — Creates the design this skill plans from; `design.approved` must be true
+- **superpowers:using-git-worktrees** — Isolated workspace; `worktree.main.path` must exist
+
+**After this skill:**
+- **superpowers:agent-team-driven-development** — Parallel execution (4+ tasks with independence)
+- **superpowers:subagent-driven-development** — Serial execution (same session)
+- **superpowers:executing-plans** — Fallback for no-subagent platforms
+
+**Reads from state.yml:** `design.approved`, `design.path`, `worktree.main.path`, `team.roster`
+**Writes to state.yml:** `plan.path`, `plan.status`, `plan.executor`, `plan.total_tasks`, `phase: planning`
+**Creates:** `docs/plans/<project>/plan.md`, `docs/plans/<project>/tasks/*.md`

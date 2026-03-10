@@ -38,7 +38,7 @@ You MUST create a task for each of these items and complete them in order:
 7. **Write design doc** — save to `docs/plans/<project>/design.md` and commit; write `design.approved: true` to `.superpowers/state.yml`
 8. **Spec review loop** — dispatch reviewer subagent, iterate until approved (max 5 rounds)
 9. **Create worktree** — create project worktree via using-git-worktrees, record path in state.yml
-10. **Compose team?** — apply the decision framework below; invoke composing-teams only if criteria met; transition to implementation via writing-plans
+10. **Compose team?** — apply the decision framework below; invoke superpowers:composing-teams only if criteria met; transition to implementation via superpowers:writing-plans
 
 ## Process Flow
 
@@ -154,7 +154,7 @@ After writing the design document:
 
 1. Dispatch spec-document-reviewer subagent (see `skills/brainstorming/spec-document-reviewer-prompt.md`)
 2. If Issues Found: fix the design doc, re-dispatch reviewer, repeat until Approved
-3. If the loop exceeds 5 iterations, surface to your human partner for guidance
+3. If the loop exceeds 5 iterations, surface to the user for guidance
 
 **Worktree (step 9):**
 - Create worktree via `superpowers:using-git-worktrees`
@@ -210,3 +210,16 @@ If they agree to the companion, read the detailed guide before proceeding:
 - **Incremental validation** — Present design, get approval before moving on
 - **Be flexible** — Go back and clarify when something doesn't make sense
 - **design.md is immutable** — Later skills (writing-plans, executors) must never overwrite it
+
+## Integration
+
+**Called by:**
+- User request or using-superpowers automatic detection
+
+**After this skill:**
+- **superpowers:writing-plans** — Creates implementation plan from approved design
+- **superpowers:composing-teams** — Assembles team roster (if team criteria met)
+- **superpowers:using-git-worktrees** — Creates isolated workspace
+
+**Writes to state.yml:** `phase: brainstorming`, `design.path`, `design.approved`, `design.approved_at`
+**Creates:** `docs/plans/<project>/design.md`

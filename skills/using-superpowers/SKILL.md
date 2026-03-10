@@ -63,6 +63,8 @@ digraph skill_flow {
 }
 ```
 
+*Note: EnterPlanMode is a Claude Code feature for isolated planning. Superpowers skills handle planning through brainstorming -> writing-plans instead. If you're about to use EnterPlanMode, invoke brainstorming first.*
+
 ## Red Flags
 
 These thoughts mean STOP — you're rationalizing:
