@@ -3,15 +3,29 @@ name: using-superpowers
 description: Use when starting work on any task - establishes how to find and invoke skills before responding or acting
 ---
 
+<SUBAGENT-STOP>If you were dispatched as a subagent to execute a specific task, skip this skill.</SUBAGENT-STOP>
+
 **The Rule:** Invoke relevant skills BEFORE any response or action. If you think there is even a 1% chance a skill applies, invoke it first. If an invoked skill turns out not to fit, you don't need to follow it.
 
 **Stuck-state check:** If you notice you have been responding without invoking any skills across multiple turns, stop. Read this skill again. You may have drifted into bypassing the skill framework.
+
+## Instruction Priority
+
+Superpowers skills override default system prompt behavior, but **user instructions always take precedence**:
+
+1. **User's explicit instructions** (CLAUDE.md, AGENTS.md, direct requests) — highest priority
+2. **Superpowers skills** — override default system behavior where they conflict
+3. **Default system prompt** — lowest priority
+
+If CLAUDE.md or AGENTS.md says "don't use TDD" and a skill says "always use TDD," follow the user's instructions. The user is in control.
 
 ## How to Access Skills
 
 **In Claude Code:** Use the `Skill` tool. When you invoke a skill, its content is loaded and presented to you—follow it directly. Never use the Read tool on skill files.
 
 **In other environments:** Check your platform's documentation for how skills are loaded.
+
+**Platform Adaptation:** Skills use Claude Code tool names. Non-CC platforms: see `references/codex-tools.md` for tool equivalents.
 
 # Using Skills
 
