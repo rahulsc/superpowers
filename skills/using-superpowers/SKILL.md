@@ -3,6 +3,8 @@ name: using-superpowers
 description: Use when starting work on any task - establishes how to find and invoke skills before responding or acting
 ---
 
+<SUBAGENT-STOP>If you were dispatched as a subagent to execute a specific task, skip this skill.</SUBAGENT-STOP>
+
 **The Rule:** Invoke relevant skills BEFORE any response or action. If you think there is even a 1% chance a skill applies, invoke it first. If an invoked skill turns out not to fit, you don't need to follow it.
 
 **Stuck-state check:** If you notice you have been responding without invoking any skills across multiple turns, stop. Read this skill again. You may have drifted into bypassing the skill framework.
@@ -14,6 +16,7 @@ IF A SKILL APPLIES TO YOUR TASK, YOU DO NOT HAVE A CHOICE. YOU MUST USE IT.
 
 This is not negotiable. This is not optional. You cannot rationalize your way out of this.
 </EXTREMELY-IMPORTANT>
+
 
 ## Instruction Priority
 
@@ -73,6 +76,8 @@ digraph skill_flow {
     "Create TaskCreate task per item" -> "Follow skill exactly";
 }
 ```
+
+*Note: EnterPlanMode is a Claude Code feature for isolated planning. Superpowers skills handle planning through brainstorming -> writing-plans instead. If you're about to use EnterPlanMode, invoke brainstorming first.*
 
 ## Red Flags
 

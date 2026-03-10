@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Integration Test: Document Review System
-# Actually runs spec/plan review and verifies reviewers catch issues
+# Actually runs design/plan review and verifies reviewers catch issues
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -11,8 +11,8 @@ echo " Integration Test: Document Review System"
 echo "========================================"
 echo ""
 echo "This test verifies the document review system by:"
-echo "  1. Creating a spec with intentional errors"
-echo "  2. Running the spec document reviewer"
+echo "  1. Creating a design doc with intentional errors"
+echo "  2. Running the design document reviewer"
 echo "  3. Verifying the reviewer catches the errors"
 echo ""
 
@@ -26,10 +26,10 @@ trap "cleanup_test_project $TEST_PROJECT" EXIT
 cd "$TEST_PROJECT"
 
 # Create directory structure
-mkdir -p docs/superpowers/specs
+mkdir -p docs/test-feature/design
 
-# Create a spec document WITH INTENTIONAL ERRORS for the reviewer to catch
-cat > docs/superpowers/specs/test-feature-design.md <<'EOF'
+# Create a design document WITH INTENTIONAL ERRORS for the reviewer to catch
+cat > docs/test-feature/design/design.md <<'EOF'
 # Test Feature Design
 
 ## Overview
@@ -63,28 +63,28 @@ git init --quiet
 git config user.email "test@test.com"
 git config user.name "Test User"
 git add .
-git commit -m "Initial commit with test spec" --quiet
+git commit -m "Initial commit with test design" --quiet
 
 echo ""
-echo "Created test spec with intentional errors:"
+echo "Created test design doc with intentional errors:"
 echo "  - TODO placeholder in Requirements section"
 echo "  - 'specified later' deferral in Architecture section"
 echo ""
-echo "Running spec document reviewer..."
+echo "Running design document reviewer..."
 echo ""
 
 # Run Claude to review the spec
 OUTPUT_FILE="$TEST_PROJECT/claude-output.txt"
 
-PROMPT="You are testing the spec document reviewer.
+PROMPT="You are testing the design document reviewer.
 
-Read the spec-document-reviewer-prompt.md template in skills/brainstorming/ to understand the review format.
+Read the design-document-reviewer-prompt.md template in skills/brainstorming/ to understand the review format.
 
-Then review the spec at $TEST_PROJECT/docs/superpowers/specs/test-feature-design.md using the criteria from that template.
+Then review the design at $TEST_PROJECT/docs/test-feature/design/design.md using the criteria from that template.
 
 Look for:
 - TODOs, placeholders, 'TBD', incomplete sections
-- Sections saying 'to be defined later' or 'will spec when X is done'
+- Sections saying 'to be defined later' or 'will define when X is done'
 - Sections noticeably less detailed than others
 
 Output your review in the format specified in the template."
@@ -143,7 +143,7 @@ echo "Test 4: Reviewer verdict..."
 if grep -qi "Issues Found\|❌\|not approved\|issues found" "$OUTPUT_FILE"; then
     echo "  [PASS] Reviewer correctly found issues (not approved)"
 elif grep -qi "Approved\|✅" "$OUTPUT_FILE" && ! grep -qi "Issues Found\|❌" "$OUTPUT_FILE"; then
-    echo "  [FAIL] Reviewer incorrectly approved spec with errors"
+    echo "  [FAIL] Reviewer incorrectly approved design with errors"
     FAILED=$((FAILED + 1))
 else
     echo "  [PASS] Reviewer identified problems (ambiguous format but found issues)"
@@ -160,11 +160,11 @@ if [ $FAILED -eq 0 ]; then
     echo "STATUS: PASSED"
     echo "All verification tests passed!"
     echo ""
-    echo "The spec document reviewer correctly:"
+    echo "The design document reviewer correctly:"
     echo "  ✓ Found TODO placeholder"
     echo "  ✓ Found 'specified later' deferral"
     echo "  ✓ Produced properly formatted review"
-    echo "  ✓ Did not approve spec with errors"
+    echo "  ✓ Did not approve design with errors"
     exit 0
 else
     echo "STATUS: FAILED"

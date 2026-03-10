@@ -39,7 +39,14 @@ Execute plans by orchestrating a team of persistent specialist agents working in
 | Spec Reviewer | Subagent | Fresh per review | sonnet | As needed |
 | Code Quality Reviewer | `superpowers:code-reviewer` subagent | Fresh per review | sonnet | As needed |
 
-**Model tiering:** Lead and final reviewers use opus (planning, coordination, judgment). Implementers and spec reviewers use sonnet (sufficient for focused tasks, lower cost). If the user has set model preferences in composing-teams, follow those.
+**Model tiering:** Lead and final reviewers use opus (planning, coordination, judgment). Implementers and spec reviewers default to sonnet (sufficient for focused tasks, lower cost). If the user has set model preferences in composing-teams, follow those.
+
+**Task-complexity signals for implementer model selection:**
+- **Mechanical tasks** (isolated functions, clear specs, 1-2 files, scaffolding): use a fast, cheap model (sonnet or haiku). Most implementation tasks are mechanical when the plan is well-specified.
+- **Integration tasks** (multi-file coordination, cross-module wiring, pattern matching): use sonnet.
+- **Architecture/design tasks** (broad codebase understanding, design judgment, complex debugging): use opus.
+
+When assigning tasks to waves, note the complexity tier for each task. If a persistent implementer was spawned at a lower model tier but the next wave assigns it an architecture-level task, shut down that implementer and spawn a new one at the higher tier. Only change model tiers between waves — never mid-task.
 
 **Agent selection hierarchy:**
 1. **Project agents** — if the project has custom agent definitions (e.g., `react-engineer.md` in `.claude/agents/`), use those
@@ -240,12 +247,23 @@ digraph agent_team {
 
 1. **Implementer reports completion** via `SendMessage` with command evidence + diff evidence
 2. **Check evidence** — if missing, send back: "Missing evidence. Required: test output + commit SHA"
-3. **Spec review** — dispatch subagent using `./spec-reviewer-prompt.md`
+3. **Check implementer status** — handle the reported status before proceeding to review:
+   - **DONE:** Proceed to spec review.
+   - **DONE_WITH_CONCERNS:** Read the concerns. If about correctness or scope, address before review (message the implementer for clarification or fixes). If observational (e.g., "this file is getting large"), note them and proceed.
+   - **NEEDS_CONTEXT:** Provide the missing context via `SendMessage` to the same persistent implementer. They continue without re-learning.
+   - **BLOCKED:** Assess the blocker:
+     1. Context problem → provide more context via `SendMessage`, implementer retries
+     2. Needs more reasoning → shut down this implementer, spawn a new one at a higher model tier (e.g., sonnet → opus) with the task context and what was attempted
+     3. Task too large → break into sub-tasks and assign across the current wave's remaining capacity
+     4. Plan itself is wrong → escalate to the user
+
+   **Never** ignore an escalation or force the same implementer to retry without changes. If they said they are stuck, something needs to change. Persistent implementers can receive new context via `SendMessage` — only re-spawn when the model tier needs to change.
+4. **Spec review** — dispatch subagent using `./spec-reviewer-prompt.md`
    - If issues: message implementer with specific feedback → they fix → dispatch fresh spec reviewer
    - Re-review loop bound: max 3 cycles, then escalate with rejection history
-4. **Code quality review** — dispatch subagent using `./code-quality-reviewer-prompt.md`
+5. **Code quality review** — dispatch subagent using `./code-quality-reviewer-prompt.md`
    - Same fix loop, same 3-cycle bound
-5. **Mark task complete** via `TaskUpdate`, update `plan.completed_tasks` in state.yml
+6. **Mark task complete** via `TaskUpdate`, update `plan.completed_tasks` in state.yml
 
 **Pipelined TDD enforcement:** If QA wrote tests for this wave, verify each implementer's completion report includes both RED evidence (QA's test failed before implementation) and GREEN evidence (test passes after). Reject reports missing either.
 

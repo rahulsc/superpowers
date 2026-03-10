@@ -34,23 +34,29 @@ IF any check fails:
   Do not write a plan until prerequisites are met.
 ```
 
+## Scope Check
+
+If the design covers multiple independent subsystems, it should have been broken into sub-project designs during brainstorming. If it wasn't, suggest breaking this into separate plans — one per subsystem. Each plan should produce working, testable software on its own.
+
 ## Save Location
 
 Use directory-based plan structure:
 
 ```
-docs/plans/<project>/
-├── design.md          # already exists (brainstorming output — do not touch)
-├── plan.md            # write this (overview + task list)
-└── tasks/             # write one file per task (optional, for 4+ task plans)
-    ├── 01-<slug>.md
-    ├── 02-<slug>.md
-    └── ...
+docs/<project>/
+├── design/            # already exists (brainstorming output — do not touch)
+│   └── design.md      # or multiple files when split
+├── plans/
+│   ├── plan.md        # write this (overview + task list)
+│   └── tasks/         # write one file per task (optional, for 4+ task plans)
+│       ├── 01-<slug>.md
+│       ├── 02-<slug>.md
+│       └── ...
 ```
 
 `<project>` is the kebab-case name from the design doc (e.g., `user-auth`, `payment-refactor`).
 
-**Do NOT use date-prefixed filenames** (`docs/plans/YYYY-MM-DD-feature.md`). The directory name carries enough context and state.yml stores the path for cross-session discovery.
+**Do NOT use date-prefixed filenames.** The directory name carries enough context and state.yml stores the path for cross-session discovery.
 
 **Worktree context:** The plan executes in the worktree at `worktree.main.path` (from state.yml). Include this path context in the plan header so executors know where to work.
 
@@ -60,7 +66,7 @@ Write to state.yml:
 
 ```yaml
 plan:
-  path: docs/plans/<project>/plan.md
+  path: docs/<project>/plans/plan.md
   status: pending
   executor: ""           # filled in when user picks execution approach
   total_tasks: N
@@ -68,6 +74,17 @@ phase: planning
 ```
 
 **Plan frontmatter status:** The plan.md template includes `status: pending` in its YAML frontmatter. Executors update this to `status: executed` on completion. This allows tools and agents to check plan status directly from the document without consulting state.yml.
+
+## File Structure
+
+Before defining tasks, map out which files will be created or modified and what each one is responsible for. This is where decomposition decisions get locked in.
+
+- Design units with clear boundaries and well-defined interfaces. Each file should have one clear responsibility.
+- Prefer smaller, focused files over large ones that do too much. Agents reason best about code they can hold in context at once, and edits are more reliable when files are focused.
+- Files that change together should live together. Split by responsibility, not by technical layer.
+- In existing codebases, follow established patterns. If the codebase uses large files, don't unilaterally restructure — but if a file being modified has grown unwieldy, including a split in the plan is reasonable.
+
+This structure informs the task decomposition. Each task should produce self-contained changes that make sense independently.
 
 ## Bite-Sized Task Granularity
 
@@ -89,7 +106,7 @@ status: pending
 
 # [Feature Name] Implementation Plan
 
-> See [design](design.md) for context and rationale.
+> See [design](../design/design.md) for context and rationale.
 > **For Claude:** Use [execution-skill] to execute this plan.
 
 **Goal:** [One sentence]
@@ -121,7 +138,7 @@ status: pending
 2. Run the Team Fitness Check (see below) to determine whether parallel execution is warranted
 3. Decided the execution approach — only then write the header with the correct `> **For Claude:** Use [execution-skill]` line
 
-### tasks/<NN>-<slug>.md (one per task, for 4+ task plans)
+### plans/tasks/<NN>-<slug>.md (one per task, for 4+ task plans)
 
 ```markdown
 # Task N: [Title]
@@ -153,7 +170,7 @@ One sentence.
 
 ## Implementation Notes
 
-[Context the implementer needs that isn't in design.md]
+[Context the implementer needs that isn't in the design]
 [Interfaces they must match]
 [Patterns from existing code to follow]
 [What NOT to build — YAGNI notes]
@@ -163,7 +180,7 @@ One sentence.
 `feat: [description]`
 ```
 
-**For plans with fewer than 4 tasks:** Embed the full task content in `plan.md` directly (no `tasks/` directory needed).
+**For plans with fewer than 4 tasks:** Embed the full task content in `plan.md` directly (no `plans/tasks/` directory needed).
 
 ## Plan-Level Test Expectations
 
@@ -273,6 +290,25 @@ Before handing off for execution, consider a plan review:
 
 For critical or complex plans, a separate review pass (treating yourself as a new reader with no context) catches gaps that are obvious once implementation starts.
 
+## Plan Review Loop
+
+After completing each chunk of the plan:
+
+1. Dispatch plan-document-reviewer subagent (see `plan-document-reviewer-prompt.md`) for the current chunk
+   - Provide: chunk content, path to design document
+2. If Issues Found:
+   - Fix the issues in the chunk
+   - Re-dispatch reviewer for that chunk
+   - Repeat until Approved
+3. If Approved: proceed to next chunk (or execution handoff if last chunk)
+
+**Chunk boundaries:** Use `## Chunk N: <name>` headings to delimit chunks. Each chunk should be at most 1000 lines and logically self-contained.
+
+**Review loop guidance:**
+- Same agent that wrote the plan fixes it (preserves context)
+- If loop exceeds 5 iterations, surface to human for guidance
+- Reviewers are advisory — explain disagreements if you believe feedback is incorrect
+
 ## Remember
 
 - Exact file paths always
@@ -288,14 +324,29 @@ For critical or complex plans, a separate review pass (treating yourself as a ne
 
 After saving the plan and writing state.yml, offer execution choice:
 
-**"Plan saved to `docs/plans/<project>/plan.md`. Three execution options:**
+**"Plan saved to `docs/<project>/plans/plan.md`. Two execution options:**
 
-**1. Agent Team-Driven (this session)** — Parallel specialist agents, wave-based execution, two-stage review after each task. Best for 4+ tasks with parallelism.
+**1. Agent Team-Driven (this session)** — Parallel specialist agents, wave-based execution, two-stage review after each task. Best for 4+ tasks with parallelism. Uses `superpowers:agent-team-driven-development`.
 
-**2. Subagent-Driven (this session)** — Fresh subagent per task, review between tasks. Best for serial plans or fewer tasks.
-
-**3. Parallel Session (separate)** — Open new session with executing-plans, batch execution with checkpoints. Best for human-in-loop between batches.
+**2. Subagent-Driven (this session)** — Fresh subagent per task, review between tasks. Best for serial plans or fewer tasks. Uses `superpowers:subagent-driven-development`.
 
 **Which approach?"**
 
+**Automatic fallback:** If the harness does not support subagents (no TaskTool available), execution falls back to `superpowers:executing-plans` which runs tasks in the current session with batch checkpoints.
+
 After user chooses, update state.yml `plan.executor` field, then invoke the chosen execution skill.
+
+## Integration
+
+**Before this skill:**
+- **superpowers:brainstorming** — Creates the design this skill plans from; `design.approved` must be true
+- **superpowers:using-git-worktrees** — Isolated workspace; `worktree.main.path` must exist
+
+**After this skill:**
+- **superpowers:agent-team-driven-development** — Parallel execution (4+ tasks with independence)
+- **superpowers:subagent-driven-development** — Serial execution (same session)
+- **superpowers:executing-plans** — Fallback for no-subagent platforms
+
+**Reads from state.yml:** `design.approved`, `design.path`, `worktree.main.path`, `team.roster`
+**Writes to state.yml:** `plan.path`, `plan.status`, `plan.executor`, `plan.total_tasks`, `phase: planning`
+**Creates:** `docs/<project>/plans/plan.md`, `docs/<project>/plans/tasks/*.md`

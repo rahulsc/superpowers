@@ -92,7 +92,7 @@ Apply fitness check:
 - Roster has 2+ distinct specialist roles AND work has parallelizable components → recommend team plan format during writing-plans
 - Otherwise → recommend standard serial format
 
-Either way, invoke `writing-plans` next. The unified writing-plans skill handles both formats based on a Team Fitness Check.
+Either way, invoke `superpowers:writing-plans` next. The unified writing-plans skill handles both formats based on a Team Fitness Check.
 
 ## Key Principles
 
