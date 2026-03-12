@@ -116,6 +116,11 @@ digraph brainstorming {
 - If too large, split into focused files under `docs/plans/<project>/` (e.g., `overview.md`, `data-model.md`)
 - Commit the design document(s) to git
 - `design.md` is immutable — later skills must never overwrite it
+- Write design state via Forge storage:
+  ```bash
+  forge-state set design.path "docs/plans/<project>/design.md"
+  forge-state set design.approved false
+  ```
 
 **Design Review Loop (step 8):**
 1. Dispatch design-document-reviewer subagent (see `skills/brainstorming/design-document-reviewer-prompt.md`)
@@ -129,6 +134,12 @@ After the review loop passes, ask the user to review the written spec:
 > "Spec written and committed to `<path>`. Please review it and let me know if you want to make any changes before we start implementation planning."
 
 Wait for the user's response. If they request changes, update and re-run the review loop. Only proceed once the user approves.
+
+Once the user approves, record approval in Forge state:
+```bash
+forge-state set design.approved true
+forge-state set design.approved_at "$(date +%Y-%m-%d)"
+```
 
 **Hand off (step 10):**
 

@@ -308,25 +308,6 @@ Before handing off for execution, consider a plan review:
 
 For critical or complex plans, a separate review pass (treating yourself as a new reader with no context) catches gaps that are obvious once implementation starts.
 
-## Plan Review Loop
-
-After completing each chunk of the plan:
-
-1. Dispatch plan-document-reviewer subagent (see `plan-document-reviewer-prompt.md`) for the current chunk
-   - Provide: chunk content, path to design document
-2. If Issues Found:
-   - Fix the issues in the chunk
-   - Re-dispatch reviewer for that chunk
-   - Repeat until Approved
-3. If Approved: proceed to next chunk (or execution handoff if last chunk)
-
-**Chunk boundaries:** Use `## Chunk N: <name>` headings to delimit chunks. Each chunk should be at most 1000 lines and logically self-contained.
-
-**Review loop guidance:**
-- Same agent that wrote the plan fixes it (preserves context)
-- If loop exceeds 5 iterations, surface to human for guidance
-- Reviewers are advisory — explain disagreements if you believe feedback is incorrect
-
 ## Remember
 
 - Exact file paths always
@@ -342,24 +323,24 @@ After completing each chunk of the plan:
 
 After completing each chunk of the plan:
 
-1. Dispatch plan-document-reviewer subagent (see plan-document-reviewer-prompt.md) with precisely crafted review context — never your session history. This keeps the reviewer focused on the plan, not your thought process.
-   - Provide: chunk content, path to spec document
-2. If ❌ Issues Found:
+1. Dispatch plan-document-reviewer subagent (see `plan-document-reviewer-prompt.md`) with precisely crafted review context — never your session history. This keeps the reviewer focused on the plan, not your thought process.
+   - Provide: chunk content, path to design document
+2. If issues found:
    - Fix the issues in the chunk
    - Re-dispatch reviewer for that chunk
-   - Repeat until ✅ Approved
-3. If ✅ Approved: proceed to next chunk (or execution handoff if last chunk)
+   - Repeat until approved
+3. If approved: proceed to next chunk (or execution handoff if last chunk)
 
-**Chunk boundaries:** Use `## Chunk N: <name>` headings to delimit chunks. Each chunk should be ≤1000 lines and logically self-contained.
+**Chunk boundaries:** Use `## Chunk N: <name>` headings to delimit chunks. Each chunk should be at most 1000 lines and logically self-contained.
 
 **Review loop guidance:**
 - Same agent that wrote the plan fixes it (preserves context)
 - If loop exceeds 5 iterations, surface to human for guidance
-- Reviewers are advisory - explain disagreements if you believe feedback is incorrect
+- Reviewers are advisory — explain disagreements if you believe feedback is incorrect
 
 ## Execution Handoff
 
-After saving the plan and writing state.yml, offer execution choice:
+After saving the plan and writing Forge state, offer execution choice:
 
 **"Plan saved to `docs/<project>/plans/plan.md`. Two execution options:**
 
