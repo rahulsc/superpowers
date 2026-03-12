@@ -5,15 +5,15 @@ description: Use when executing implementation plans with independent tasks in t
 
 # Subagent-Driven Development
 
-Execute plan by dispatching fresh subagent per task, with two-stage review after each: spec compliance review first, then code quality review.
+Execute plan by dispatching fresh subagent per task, with risk-tier-aware review after each. Review ceremony scales from light (minimal tier) to full two-stage + wave validation + security review (critical tier).
 
 **Why subagents:** You delegate tasks to specialized agents with isolated context. By precisely crafting their instructions and context, you ensure they stay focused and succeed at their task. They should never inherit your session's context or history — you construct exactly what they need. This also preserves your own context for coordination work.
 
 **Announce at start:** "I'm using the subagent-driven-development skill to execute tasks with independent subagents."
 
-**Core principle:** Fresh subagent per task + two-stage review (spec then quality) = high quality, fast iteration
+**Core principle:** Fresh subagent per task + tier-scaled review = high quality, right-sized ceremony
 
-**Subagent lifecycle:** Each task gets a fresh subagent. The subagent persists within that task (including any re-review loops) but is not reused across tasks. fresh per task, persistent within task.
+**Subagent lifecycle:** Each task gets a fresh subagent. The subagent persists within that task (including any re-review loops) but is not reused across tasks. Fresh per task, persistent within task.
 
 ## When to Use
 
@@ -67,7 +67,7 @@ digraph process {
     "Read plan, extract all tasks with full text, note context, create tasks with TaskCreate" [shape=box];
     "More tasks remain?" [shape=diamond];
     "Dispatch final code reviewer subagent (whole feature, all tasks)" [shape=box];
-    "Use superpowers:finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
+    "Use forge:finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
 
     "Read plan, extract all tasks with full text, note context, create tasks with TaskCreate" -> "Dispatch implementer subagent (./implementer-prompt.md)";
     "Dispatch implementer subagent (./implementer-prompt.md)" -> "Implementer subagent asks questions?";
@@ -86,7 +86,7 @@ digraph process {
     "Mark task complete with TaskUpdate" -> "More tasks remain?";
     "More tasks remain?" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="yes"];
     "More tasks remain?" -> "Dispatch final code reviewer subagent (whole feature, all tasks)" [label="no"];
-    "Dispatch final code reviewer subagent (whole feature, all tasks)" -> "Use superpowers:finishing-a-development-branch";
+    "Dispatch final code reviewer subagent (whole feature, all tasks)" -> "Use forge:finishing-a-development-branch";
 }
 ```
 
@@ -125,7 +125,7 @@ Implementer subagents report one of four statuses. Handle each appropriately:
 
 ## Evidence Requirements
 
-Implementers MUST provide evidence before the controller marks a task complete. See `superpowers:verification-before-completion` for the canonical evidence format.
+Implementers MUST provide evidence before the controller marks a task complete. See `forge:verification-before-completion` for the canonical evidence format.
 
 **Required per task:**
 
@@ -134,33 +134,40 @@ Implementers MUST provide evidence before the controller marks a task complete. 
 | Test output | Command | Test command, verbatim output, exit code |
 | Commit | Diff | `git diff --stat`, commit SHA |
 
-**TDD gate:** Before marking implementation complete, verify RED evidence (test fails for right reason) then GREEN evidence (test passes). Both must exist. See `superpowers:test-driven-development` for Solo TDD mode details.
+After each task completes, record the evidence:
+
+```
+forge-evidence add <task-id> <artifact>
+```
+
+This persists the evidence in `.forge/local/` so it survives session boundaries and can be audited later.
+
+**TDD gate:** Before marking implementation complete, verify RED evidence (test fails for right reason) then GREEN evidence (test passes). Both must exist. TDD is required at standard+ tiers; optional at minimal tier. See `forge:test-driven-development` for Solo TDD mode details.
 
 **Rejection rule:** Any completion report missing command + diff evidence is rejected: "Missing evidence. Required: command (test output) + diff (commit SHA)."
 
 ## State Integration
 
-After each task completes, update `.superpowers/state.yml`:
+After each task completes, update state via `forge-state`:
 
-```yaml
-plan:
-  path: docs/my-feature/plans/plan.md
-  completed_tasks: [1, 2, 3]  # append task number
-  total_tasks: 6
 ```
+forge-state set plan.completed_tasks "[1, 2, 3]" --append-task <N>
+```
+
+State is stored in `.forge/local/` (gitignored, persists across sessions).
 
 If using directory-based plans (`docs/<project>/plans/tasks/`), load individual task files rather than the full plan -- approximately 2.7x token savings for large plans.
 
 ### Cold Resume
 
-On every session start, check for `.superpowers/state.yml`. If it exists and `plan.completed_tasks` is non-empty:
+On every session start, check for existing state via `forge-state get plan.completed_tasks`. If it returns a non-empty list:
 
 1. Announce: "Resuming from task N of M (tasks 1..N-1 complete)."
-2. Load the plan from `plan.path`
+2. Load the plan from `forge-state get plan.path`
 3. Skip already-completed tasks -- do not re-execute them
 4. Continue from the next incomplete task
 
-This enables cross-session continuity without re-executing work. If no state.yml exists, proceed normally from task 1.
+This enables cross-session continuity without re-executing work. If no state exists, proceed normally from task 1.
 
 ## Re-Review Loop Bound
 
@@ -184,13 +191,20 @@ When a team roster exists (from composing-teams), use the specified agent defini
 - If the task has an `Agent:` field, use that agent definition
 - If the roster specifies a model for the agent, use that model
 - If no model is specified or `model: inherit`, use the most powerful available model
-- Reviewer subagents still use their standard definitions (`general-purpose` for spec, `superpowers:code-reviewer` for quality)
+- Reviewer subagents still use their standard definitions (`general-purpose` for spec, `forge:code-reviewer` for quality)
 
-## Review Tiering
+## Review Tiering (Risk-Tier-Aware)
 
-For simple, low-risk tasks: light review (single combined pass checking both spec compliance and code quality in one round).
-For default tasks: standard two-stage review (spec compliance, then code quality).
-For auth/payment/data tasks: critical — add a security-focused review pass after code quality.
+Read the project risk tier from `forge-state get risk.tier`. Review ceremony scales with the tier:
+
+| Risk Tier | Review Ceremony | TDD | Wave Validation |
+|-----------|----------------|-----|-----------------|
+| **Minimal** | Light review — single combined spec+quality pass | Optional — skip if task is trivial | No |
+| **Standard** | Standard two-stage — spec compliance, then code quality | Required — RED/GREEN evidence | No |
+| **Elevated** | Standard two-stage + wave validation between waves | Required | Yes — dispatch `forge:validating-wave-compliance` between waves |
+| **Critical** | Standard two-stage + wave validation + security review pass | Required | Yes — dispatch `forge:validating-wave-compliance` between waves |
+
+At **elevated+** tiers, after completing all tasks in a wave and before starting the next wave, dispatch `forge:validating-wave-compliance` to verify cross-task consistency and integration correctness.
 
 ## Prompt Templates
 
@@ -229,8 +243,9 @@ Spec reviewer: ✅ Spec compliant - all requirements met, nothing extra
 [Get git SHAs, dispatch code quality reviewer]
 Code reviewer: Strengths: Good test coverage, clean. Issues: None. Approved.
 
-[Verify evidence: Command (5/5 tests pass, exit 0) + Diff (SHA: abc1234, 3 files changed)]
-[Update state.yml: plan.completed_tasks: [1]]
+[Verify evidence per forge:verification-before-completion]
+[forge-evidence add task-1 test-output.txt]
+[forge-state set plan.completed_tasks "[1]"]
 [Mark Task 1 complete with TaskUpdate]
 
 Task 2: Recovery modes
@@ -265,8 +280,9 @@ Implementer: Extracted PROGRESS_INTERVAL constant
 [Code reviewer reviews again]
 Code reviewer: ✅ Approved
 
-[Verify evidence: Command (8/8 tests pass, exit 0) + Diff (SHA: def5678, 4 files changed)]
-[Update state.yml: plan.completed_tasks: [1, 2]]
+[Verify evidence per forge:verification-before-completion]
+[forge-evidence add task-2 test-output.txt]
+[forge-state set plan.completed_tasks "[1, 2]"]
 [Mark Task 2 complete with TaskUpdate]
 
 ...
@@ -366,16 +382,17 @@ If during execution you discover the plan is fundamentally wrong (not just a min
 ## Integration
 
 **Required workflow skills:**
-- **superpowers:using-git-worktrees** - REQUIRED: Set up isolated workspace before starting
-- **superpowers:writing-plans** - Creates the plan this skill executes
-- **superpowers:requesting-code-review** - Code review template for reviewer subagents
-- **superpowers:finishing-a-development-branch** - Complete development after all tasks
+- **forge:using-git-worktrees** - REQUIRED: Set up isolated workspace before starting
+- **forge:writing-plans** - Creates the plan this skill executes
+- **forge:requesting-code-review** - Code review template for reviewer subagents
+- **forge:finishing-a-development-branch** - Complete development after all tasks
+- **forge:verification-before-completion** - Evidence gates at task completion
 
-**REQUIRED:** After all tasks are complete, invoke `superpowers:finishing-a-development-branch` to handle merge/PR/cleanup. Do not skip this step.
+**REQUIRED:** After all tasks are complete, invoke `forge:finishing-a-development-branch` to handle merge/PR/cleanup. Do not skip this step.
 
 **Subagents should use:**
-- **superpowers:test-driven-development** - Subagents follow TDD for each task
+- **forge:test-driven-development** - Subagents follow TDD for each task (required at standard+ tiers)
 
 **Alternative workflow:**
-- **superpowers:executing-plans** - Use for parallel session instead of same-session execution
-- **superpowers:agent-team-driven-development** - Use for parallel execution with persistent specialist agents across waves (better for 4+ tasks with parallelism)
+- **forge:executing-plans** - Use for parallel session instead of same-session execution
+- **forge:agent-team-driven-development** - Use for parallel execution with persistent specialist agents across waves (better for 4+ tasks with parallelism)
