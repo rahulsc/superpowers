@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+# forge-session-start — SessionStart hook for Forge projects
+# Detects .forge/project.yaml in cwd or FORGE_PROJECT_DIR, injects Forge context.
+# Falls back gracefully (exit 0, empty output) when not in a Forge project.
+
+set -euo pipefail
+
+# --- Locate project dir ---
+PROJECT_DIR="${FORGE_PROJECT_DIR:-$(pwd)}"
+PROJECT_YAML="$PROJECT_DIR/.forge/project.yaml"
+
+# Also search up directory tree from cwd (when FORGE_PROJECT_DIR not set)
+if [ -z "${FORGE_PROJECT_DIR:-}" ] && [ ! -f "$PROJECT_YAML" ]; then
+    dir="$(pwd)"
+    while [ "$dir" != "/" ]; do
+        if [ -f "$dir/.forge/project.yaml" ]; then
+            PROJECT_DIR="$dir"
+            PROJECT_YAML="$PROJECT_DIR/.forge/project.yaml"
+            break
+        fi
+        dir="$(dirname "$dir")"
+    done
+fi
+
+# --- Graceful fallback if not a Forge project ---
+if [ ! -f "$PROJECT_YAML" ]; then
+    exit 0
+fi
+
+# --- Read project.yaml fields (no external parser required) ---
+_yaml_get() {
+    local key="$1"
+    local file="$2"
+    grep -m1 "^${key}:" "$file" 2>/dev/null | sed "s/^${key}:[[:space:]]*//" | tr -d '"' || true
+}
+
+PROJECT_NAME=$(_yaml_get "name" "$PROJECT_YAML")
+PROJECT_STACK=$(_yaml_get "stack" "$PROJECT_YAML")
+PROJECT_VERSION=$(_yaml_get "version" "$PROJECT_YAML")
+
+# Read commands block (test/lint lines)
+TEST_CMD=$(grep -m1 '^\s*test:' "$PROJECT_YAML" 2>/dev/null | sed 's/.*test:[[:space:]]*//' || true)
+LINT_CMD=$(grep -m1 '^\s*lint:' "$PROJECT_YAML" 2>/dev/null | sed 's/.*lint:[[:space:]]*//' || true)
+
+# --- Read current Forge state (best-effort) ---
+FORGE_BIN="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/../.forge/bin" 2>/dev/null && pwd)" || FORGE_BIN=""
+ACTIVE_TASK=""
+if [ -n "$FORGE_BIN" ] && [ -x "$FORGE_BIN/forge-state" ]; then
+    ACTIVE_TASK=$("$FORGE_BIN/forge-state" get "active.task" --project-dir "$PROJECT_DIR" 2>/dev/null || true)
+fi
+
+# --- Build context string ---
+CONTEXT="You are working in a Forge-managed project.
+
+Project: ${PROJECT_NAME:-unknown}
+Version: ${PROJECT_VERSION:-unknown}
+Stack: ${PROJECT_STACK:-unknown}"
+
+if [ -n "$TEST_CMD" ] || [ -n "$LINT_CMD" ]; then
+    CONTEXT="${CONTEXT}
+Commands:"
+    [ -n "$TEST_CMD" ] && CONTEXT="${CONTEXT}
+  test: ${TEST_CMD}"
+    [ -n "$LINT_CMD" ] && CONTEXT="${CONTEXT}
+  lint: ${LINT_CMD}"
+fi
+
+if [ -n "$ACTIVE_TASK" ]; then
+    CONTEXT="${CONTEXT}
+Active task: ${ACTIVE_TASK}"
+fi
+
+CONTEXT="${CONTEXT}
+
+Forge enforces lifecycle gates (design → plan → TDD → implementation → verification → review).
+Use forge-gate, forge-state, forge-evidence, and forge-memory tools from .forge/bin/.
+Risk tiers (minimal/standard/elevated/critical) determine required artifacts per file path."
+
+# --- JSON-escape the context ---
+escape_for_json() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    s="${s//$'\t'/\\t}"
+    printf '%s' "$s"
+}
+
+CONTEXT_ESCAPED=$(escape_for_json "$CONTEXT")
+
+# --- Emit JSON (Claude Code hookSpecificOutput format) ---
+cat <<EOF
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SessionStart",
+    "additionalContext": "${CONTEXT_ESCAPED}"
+  }
+}
+EOF
+
+exit 0

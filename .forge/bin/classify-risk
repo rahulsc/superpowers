@@ -1,0 +1,483 @@
+#!/usr/bin/env bash
+# classify-risk — two-dimensional risk classification for Forge
+#
+# Usage:
+#   classify-risk [--project-dir DIR] [--scope N] [--override TIER] [--description TEXT] FILE [FILE...]
+#
+# Output (key=value, one per line):
+#   tier=<minimal|standard|elevated|critical|inferred>
+#   source=<policy|inferred|override>
+#   execution_strategy=<solo|team-optional|team-recommended|team-required>
+#   required_artifacts=<comma-separated list>
+#   matched_rules=<description of matched rules>
+
+set -uo pipefail
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+VALID_TIERS="minimal standard elevated critical"
+
+# Artifacts per tier (default when policy rule has no explicit 'require')
+ARTIFACTS_MINIMAL="verification"
+ARTIFACTS_STANDARD="plan,test-evidence,verification"
+ARTIFACTS_ELEVATED="design-doc,plan,tdd,evidence,review"
+ARTIFACTS_CRITICAL="design-doc,risk-register,plan,tdd,security-review,rollback-evidence,review"
+ARTIFACTS_INFERRED="verification"
+
+# ---------------------------------------------------------------------------
+# Argument parsing
+# ---------------------------------------------------------------------------
+
+PROJECT_DIR=""
+SCOPE=1
+OVERRIDE_TIER=""
+DESCRIPTION=""
+FILES=()
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --project-dir)
+            shift; PROJECT_DIR="$1"; shift ;;
+        --project-dir=*)
+            PROJECT_DIR="${1#--project-dir=}"; shift ;;
+        --scope)
+            shift; SCOPE="$1"; shift ;;
+        --scope=*)
+            SCOPE="${1#--scope=}"; shift ;;
+        --override)
+            shift; OVERRIDE_TIER="$1"; shift ;;
+        --override=*)
+            OVERRIDE_TIER="${1#--override=}"; shift ;;
+        --description)
+            shift; DESCRIPTION="$1"; shift ;;
+        --description=*)
+            DESCRIPTION="${1#--description=}"; shift ;;
+        -*)
+            # Unknown flag — skip with its argument if next arg isn't a flag
+            shift ;;
+        *)
+            FILES+=("$1"); shift ;;
+    esac
+done
+
+# Resolve project dir
+if [ -z "$PROJECT_DIR" ]; then
+    PROJECT_DIR="${FORGE_PROJECT_DIR:-$(pwd)}"
+fi
+
+# Add .forge/bin to PATH so we can call forge-state
+FORGE_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export PATH="$FORGE_BIN_DIR:$PATH"
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+# Tier ordering: minimal=1, standard=2, elevated=3, critical=4
+tier_rank() {
+    case "$1" in
+        minimal)  echo 1 ;;
+        standard) echo 2 ;;
+        elevated) echo 3 ;;
+        critical) echo 4 ;;
+        *)        echo 0 ;;
+    esac
+}
+
+# Return higher of two tiers
+max_tier() {
+    local a="$1" b="$2"
+    local ra rb
+    ra=$(tier_rank "$a")
+    rb=$(tier_rank "$b")
+    if [ "$rb" -gt "$ra" ]; then
+        echo "$b"
+    else
+        echo "$a"
+    fi
+}
+
+# Check if a tier string is valid
+is_valid_tier() {
+    case "$1" in
+        minimal|standard|elevated|critical) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Glob match: does $path match $pattern?
+# Supports ** (any path component depth) and * (within segment)
+glob_match() {
+    local path="$1"
+    local pattern="$2"
+
+    # Convert glob pattern to bash extended glob
+    # Replace ** with a placeholder, then * with [^/]*, then restore **
+    # Use bash's built-in [[ == ]] with extglob
+    shopt -s extglob globstar 2>/dev/null || true
+
+    # Simple approach: convert pattern to bash glob
+    # ** matches any path including slashes
+    # * matches within a single path segment
+    local bash_pattern
+    bash_pattern="$pattern"
+
+    # Try bash's native glob matching
+    # We need ** to match across path separators
+    if [[ "$path" == $bash_pattern ]]; then
+        return 0
+    fi
+
+    # Fallback: normalize ** to match any path via python if available
+    if command -v python3 &>/dev/null; then
+        python3 - "$path" "$pattern" 2>/dev/null <<'PYEOF'
+import sys, fnmatch, re
+
+path = sys.argv[1]
+pattern = sys.argv[2]
+
+# Convert glob pattern to regex
+# ** matches any sequence of characters including /
+# * matches any sequence not including /
+# ? matches any single character not including /
+
+def glob_to_regex(pat):
+    i = 0
+    res = '^'
+    while i < len(pat):
+        c = pat[i]
+        if c == '*':
+            if i + 1 < len(pat) and pat[i+1] == '*':
+                # ** — match anything including slashes
+                res += '.*'
+                i += 2
+                # skip trailing slash after ** if present
+                if i < len(pat) and pat[i] == '/':
+                    res += '/?'
+                    i += 1
+            else:
+                # * — match anything except slash
+                res += '[^/]*'
+                i += 1
+        elif c == '?':
+            res += '[^/]'
+            i += 1
+        elif c in '.+^${}[]|()\\':
+            res += re.escape(c)
+            i += 1
+        else:
+            res += re.escape(c)
+            i += 1
+    res += '$'
+    return res
+
+regex = glob_to_regex(pattern)
+if re.match(regex, path):
+    sys.exit(0)
+else:
+    sys.exit(1)
+PYEOF
+        return $?
+    fi
+
+    return 1
+}
+
+# Parse YAML policy file with python3 and emit lines: "RULE <tier> <require_csv> <match_pattern>"
+# Falls back to grep-based parsing
+parse_policy_file() {
+    local file="$1"
+    local policy_name
+    policy_name=$(basename "$file" .yaml)
+
+    if command -v python3 &>/dev/null; then
+        python3 - "$file" "$policy_name" <<'PYEOF'
+import yaml, sys, json
+
+file = sys.argv[1]
+policy_name = sys.argv[2]
+
+try:
+    with open(file) as f:
+        data = yaml.safe_load(f)
+except Exception as e:
+    print(f"ERROR: {e}", file=sys.stderr)
+    sys.exit(1)
+
+if not isinstance(data, dict) or 'rules' not in data:
+    sys.exit(0)  # No rules, skip silently
+
+rules = data['rules']
+if not isinstance(rules, list):
+    print(f"ERROR: 'rules' in {file} must be a list", file=sys.stderr)
+    sys.exit(1)
+
+VALID_TIERS = {'minimal', 'standard', 'elevated', 'critical'}
+
+for i, rule in enumerate(rules):
+    if not isinstance(rule, dict):
+        continue
+    tier = rule.get('tier', '')
+    if tier not in VALID_TIERS:
+        print(f"ERROR: invalid tier '{tier}' in {file} rule[{i}]", file=sys.stderr)
+        sys.exit(2)
+
+    # match can be a string or list
+    match = rule.get('match', [])
+    if isinstance(match, str):
+        match = [match]
+
+    require = rule.get('require', [])
+    if isinstance(require, str):
+        require = [require]
+    require_csv = ','.join(require) if require else ''
+
+    for pattern in match:
+        print(f"RULE\t{tier}\t{require_csv}\t{pattern}\t{policy_name}")
+PYEOF
+    else
+        # Minimal fallback: grep-based (handles simple cases)
+        local tier=""
+        local pattern=""
+        while IFS= read -r line; do
+            if [[ "$line" =~ ^[[:space:]]*tier:[[:space:]]*(.+) ]]; then
+                tier="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^[[:space:]]*-[[:space:]]*match:[[:space:]]*\"?([^\"]*)\"? ]]; then
+                pattern="${BASH_REMATCH[1]}"
+                echo -e "RULE\t${tier}\t\t${pattern}\t${policy_name}"
+            fi
+        done < "$file"
+    fi
+}
+
+# Default artifacts for a tier (used when policy rule has no explicit require)
+default_artifacts() {
+    case "$1" in
+        minimal)  echo "$ARTIFACTS_MINIMAL" ;;
+        standard) echo "$ARTIFACTS_STANDARD" ;;
+        elevated) echo "$ARTIFACTS_ELEVATED" ;;
+        critical) echo "$ARTIFACTS_CRITICAL" ;;
+        *)        echo "$ARTIFACTS_INFERRED" ;;
+    esac
+}
+
+# Map tier to blast radius category
+# minimal → minimal blast, standard/elevated → standard blast, critical → high blast
+tier_to_blast() {
+    case "$1" in
+        minimal)  echo "minimal" ;;
+        standard) echo "standard" ;;
+        elevated) echo "standard" ;;
+        critical) echo "high" ;;
+        *)        echo "standard" ;;
+    esac
+}
+
+# Scope bucket: small=1-3, medium=4-8, large=9+
+scope_bucket() {
+    local n="$1"
+    if [ "$n" -le 3 ]; then
+        echo "small"
+    elif [ "$n" -le 8 ]; then
+        echo "medium"
+    else
+        echo "large"
+    fi
+}
+
+# Matrix lookup: (blast, scope_bucket) → execution_strategy
+execution_strategy() {
+    local blast="$1"
+    local bucket="$2"
+    case "${blast}:${bucket}" in
+        minimal:small)   echo "solo" ;;
+        minimal:medium)  echo "solo" ;;
+        minimal:large)   echo "team-optional" ;;
+        standard:small)  echo "solo" ;;
+        standard:medium) echo "team-recommended" ;;
+        standard:large)  echo "team-required" ;;
+        high:small)      echo "solo" ;;
+        high:medium)     echo "team-required" ;;
+        high:large)      echo "team-required" ;;
+        *)               echo "solo" ;;
+    esac
+}
+
+# ---------------------------------------------------------------------------
+# Validate override tier if provided
+# ---------------------------------------------------------------------------
+
+if [ -n "$OVERRIDE_TIER" ]; then
+    if ! is_valid_tier "$OVERRIDE_TIER"; then
+        printf 'error: invalid override tier "%s" — must be one of: minimal, standard, elevated, critical\n' "$OVERRIDE_TIER" >&2
+        exit 1
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# Validate scope is a number
+# ---------------------------------------------------------------------------
+
+if ! [[ "$SCOPE" =~ ^[0-9]+$ ]]; then
+    printf 'error: --scope must be a positive integer, got: %s\n' "$SCOPE" >&2
+    exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# Load and parse all policy files
+# ---------------------------------------------------------------------------
+
+POLICY_DIR="$PROJECT_DIR/.forge/policies"
+ALL_RULES=()  # Array of "tier|require_csv|pattern|policy_name"
+PARSE_ERROR=0
+
+if [ -d "$POLICY_DIR" ]; then
+    for policy_file in "$POLICY_DIR"/*.yaml; do
+        [ -f "$policy_file" ] || continue
+
+        # Parse the policy file
+        local_rules_output=""
+        local_rules_output=$(parse_policy_file "$policy_file")
+        local_exit=$?
+
+        if [ $local_exit -ne 0 ]; then
+            PARSE_ERROR=1
+            # Error was already printed to stderr by parse_policy_file
+            continue
+        fi
+
+        while IFS=$'\t' read -r tag tier require_csv pattern policy_name; do
+            [ "$tag" = "RULE" ] || continue
+            ALL_RULES+=("${tier}|${require_csv}|${pattern}|${policy_name}")
+        done <<< "$local_rules_output"
+    done
+fi
+
+if [ $PARSE_ERROR -ne 0 ]; then
+    exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# Match files against rules
+# ---------------------------------------------------------------------------
+
+MATCHED_TIER=""
+MATCHED_ARTIFACTS=""
+MATCHED_RULES_DESC=()
+SOURCE="inferred"
+
+for filepath in "${FILES[@]:-}"; do
+    [ -n "$filepath" ] || continue
+
+    FILE_TIER=""
+    FILE_ARTIFACTS=""
+    FILE_MATCHED_RULES=()
+
+    for rule in "${ALL_RULES[@]:-}"; do
+        IFS='|' read -r rule_tier rule_require rule_pattern rule_policy <<< "$rule"
+
+        if glob_match "$filepath" "$rule_pattern"; then
+            # This rule matches
+            if [ -z "$FILE_TIER" ]; then
+                FILE_TIER="$rule_tier"
+                FILE_ARTIFACTS="$rule_require"
+            else
+                # Take highest tier
+                local_old_rank=$(tier_rank "$FILE_TIER")
+                local_new_rank=$(tier_rank "$rule_tier")
+                if [ "$local_new_rank" -gt "$local_old_rank" ]; then
+                    FILE_TIER="$rule_tier"
+                    # Merge artifacts: use the higher-tier rule's require
+                    FILE_ARTIFACTS="$rule_require"
+                fi
+            fi
+            FILE_MATCHED_RULES+=("${rule_pattern} (from ${rule_policy}.yaml)")
+            SOURCE="policy"
+        fi
+    done
+
+    # Merge this file's result into overall result
+    if [ -n "$FILE_TIER" ]; then
+        if [ -z "$MATCHED_TIER" ]; then
+            MATCHED_TIER="$FILE_TIER"
+            MATCHED_ARTIFACTS="$FILE_ARTIFACTS"
+        else
+            MATCHED_TIER=$(max_tier "$MATCHED_TIER" "$FILE_TIER")
+            # Use the matched artifacts from the winning tier
+            new_rank=$(tier_rank "$FILE_TIER")
+            cur_rank=$(tier_rank "$MATCHED_TIER")
+            if [ "$new_rank" -ge "$cur_rank" ]; then
+                MATCHED_ARTIFACTS="$FILE_ARTIFACTS"
+            fi
+        fi
+        MATCHED_RULES_DESC+=("${FILE_MATCHED_RULES[@]}")
+    fi
+done
+
+# ---------------------------------------------------------------------------
+# Apply override (always wins)
+# ---------------------------------------------------------------------------
+
+if [ -n "$OVERRIDE_TIER" ]; then
+    MATCHED_TIER="$OVERRIDE_TIER"
+    SOURCE="override"
+    MATCHED_ARTIFACTS=$(default_artifacts "$OVERRIDE_TIER")
+
+    # Record override in forge-state
+    if command -v forge-state &>/dev/null; then
+        for filepath in "${FILES[@]:-}"; do
+            [ -n "$filepath" ] || continue
+            forge-state set "risk.override.${filepath}" "$OVERRIDE_TIER" \
+                --project-dir "$PROJECT_DIR" 2>/dev/null || true
+        done
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# Determine final tier and defaults
+# ---------------------------------------------------------------------------
+
+FINAL_TIER="${MATCHED_TIER:-inferred}"
+FINAL_SOURCE="$SOURCE"
+
+if [ "$FINAL_TIER" = "inferred" ]; then
+    FINAL_ARTIFACTS="$ARTIFACTS_INFERRED"
+else
+    # Use matched artifacts if present; fall back to defaults
+    if [ -n "$MATCHED_ARTIFACTS" ]; then
+        FINAL_ARTIFACTS="$MATCHED_ARTIFACTS"
+    else
+        FINAL_ARTIFACTS=$(default_artifacts "$FINAL_TIER")
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# Compute execution strategy from matrix
+# ---------------------------------------------------------------------------
+
+BLAST=$(tier_to_blast "$FINAL_TIER")
+BUCKET=$(scope_bucket "$SCOPE")
+STRATEGY=$(execution_strategy "$BLAST" "$BUCKET")
+
+# ---------------------------------------------------------------------------
+# Format matched_rules description
+# ---------------------------------------------------------------------------
+
+if [ ${#MATCHED_RULES_DESC[@]} -eq 0 ]; then
+    MATCHED_RULES_OUT="none"
+else
+    # Deduplicate
+    MATCHED_RULES_OUT=$(printf '%s\n' "${MATCHED_RULES_DESC[@]}" | sort -u | paste -sd ',' -)
+fi
+
+# ---------------------------------------------------------------------------
+# Output
+# ---------------------------------------------------------------------------
+
+printf 'tier=%s\n' "$FINAL_TIER"
+printf 'source=%s\n' "$FINAL_SOURCE"
+printf 'execution_strategy=%s\n' "$STRATEGY"
+printf 'required_artifacts=%s\n' "$FINAL_ARTIFACTS"
+printf 'matched_rules=%s\n' "$MATCHED_RULES_OUT"

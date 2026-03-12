@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+# forge-pre-commit — PreCommit hook for Forge
+# Reads staged files, determines highest risk tier, checks required evidence.
+# Exit 0: allow commit. Exit 2: block commit.
+#
+# Environment variables:
+#   FORGE_PROJECT_DIR — project root (defaults to cwd or GIT_DIR parent)
+#   FORGE_TASK_ID     — task whose evidence to check (optional; if unset, uses state)
+#   GIT_DIR           — override git directory (for testing)
+
+set -euo pipefail
+
+# --- Locate project dir ---
+PROJECT_DIR="${FORGE_PROJECT_DIR:-}"
+if [ -z "$PROJECT_DIR" ]; then
+    if [ -n "${GIT_DIR:-}" ]; then
+        PROJECT_DIR="$(dirname "$(cd "$GIT_DIR" && pwd)")"
+    else
+        PROJECT_DIR="$(pwd)"
+    fi
+fi
+
+# Locate forge bins
+FORGE_BIN="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/../.forge/bin" 2>/dev/null && pwd)" || FORGE_BIN=""
+if [ -n "$FORGE_BIN" ] && [ -x "$FORGE_BIN/forge-state" ]; then
+    export PATH="$FORGE_BIN:$PATH"
+fi
+
+# --- Graceful fallback if not a Forge project ---
+# Detect Forge by .forge/ directory (project.yaml is optional in some test setups)
+if [ ! -d "$PROJECT_DIR/.forge" ]; then
+    exit 0
+fi
+
+# --- Get staged files ---
+GIT_CMD_ARGS=()
+if [ -n "${GIT_DIR:-}" ]; then
+    GIT_CMD_ARGS=(-C "$(dirname "$GIT_DIR")")
+fi
+
+STAGED_FILES=$(git "${GIT_CMD_ARGS[@]}" diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)
+
+if [ -z "$STAGED_FILES" ]; then
+    exit 0
+fi
+
+# --- Locate policy file ---
+POLICY_FILE="$PROJECT_DIR/.forge/policies/default.yaml"
+
+# --- Match staged files to highest tier/required artifacts ---
+_match_policy() {
+    local files="$1"
+    local policy="$2"
+
+    if [ ! -f "$policy" ]; then
+        printf 'minimal:verification'
+        return
+    fi
+
+    if command -v python3 &>/dev/null; then
+        python3 - "$policy" "$files" <<'PYEOF'
+import sys, fnmatch
+
+policy_file = sys.argv[1]
+files_str = sys.argv[2]
+files = [f for f in files_str.splitlines() if f.strip()]
+
+with open(policy_file) as f:
+    content = f.read()
+
+rules = []
+current = {}
+in_rules = False
+for line in content.splitlines():
+    stripped = line.strip()
+    if stripped == 'rules:':
+        in_rules = True
+        continue
+    if not in_rules:
+        continue
+    if stripped.startswith('- match:'):
+        if current:
+            rules.append(current)
+        current = {'match': stripped.split('match:', 1)[1].strip().strip('"')}
+    elif stripped.startswith('tier:') and current:
+        current['tier'] = stripped.split('tier:', 1)[1].strip()
+    elif stripped.startswith('require:') and current:
+        req_str = stripped.split('require:', 1)[1].strip().strip('[]')
+        current['require'] = [r.strip() for r in req_str.split(',') if r.strip()]
+if current:
+    rules.append(current)
+
+TIER_ORDER = {'minimal': 0, 'standard': 1, 'elevated': 2, 'critical': 3}
+
+best_tier = 'minimal'
+best_require = ['verification']
+
+for f in files:
+    for rule in rules:
+        pattern = rule.get('match', '')
+        if fnmatch.fnmatch(f, pattern) or fnmatch.fnmatch(f, pattern.replace('**', '*')):
+            tier = rule.get('tier', 'minimal')
+            if TIER_ORDER.get(tier, 0) > TIER_ORDER.get(best_tier, 0):
+                best_tier = tier
+                best_require = rule.get('require', ['verification'])
+
+print(best_tier + ':' + ','.join(best_require))
+PYEOF
+    else
+        printf 'minimal:verification'
+    fi
+}
+
+POLICY_RESULT=$(_match_policy "$STAGED_FILES" "$POLICY_FILE")
+TIER="${POLICY_RESULT%%:*}"
+REQUIRED_CSV="${POLICY_RESULT#*:}"
+
+# --- Minimal tier is always allowed ---
+if [ "$TIER" = "minimal" ]; then
+    exit 0
+fi
+
+# --- Resolve task ID ---
+TASK_ID="${FORGE_TASK_ID:-}"
+if [ -z "$TASK_ID" ] && command -v forge-state &>/dev/null; then
+    TASK_ID=$(forge-state get "active.task" --project-dir "$PROJECT_DIR" 2>/dev/null || true)
+fi
+
+if [ -z "$TASK_ID" ]; then
+    printf 'Forge PreCommit: Cannot verify — FORGE_TASK_ID not set and no active.task in state\n'
+    printf 'Staged files require tier "%s" evidence: %s\n' "$TIER" "$REQUIRED_CSV"
+    printf 'Set active task: forge-state set active.task <task-id> --project-dir %s\n' "$PROJECT_DIR"
+    exit 2
+fi
+
+# --- Check evidence ---
+EVIDENCE_LIST=""
+if command -v forge-evidence &>/dev/null; then
+    EVIDENCE_LIST=$(forge-evidence list "$TASK_ID" --project-dir "$PROJECT_DIR" 2>/dev/null || true)
+fi
+
+MISSING=()
+IFS=',' read -ra REQUIRED_ARR <<< "$REQUIRED_CSV"
+for artifact in "${REQUIRED_ARR[@]}"; do
+    artifact=$(printf '%s' "$artifact" | tr -d ' ')
+    [ -z "$artifact" ] && continue
+    if ! echo "$EVIDENCE_LIST" | grep -qi "$artifact"; then
+        MISSING+=("$artifact")
+    fi
+done
+
+if [ "${#MISSING[@]}" -eq 0 ]; then
+    exit 0
+fi
+
+printf 'Forge PreCommit BLOCKED: staged files require tier "%s" evidence for task "%s"\n' "$TIER" "$TASK_ID"
+printf 'Missing required artifacts: %s\n' "${MISSING[*]}"
+printf 'Add with: forge-evidence add %s "<artifact>" --project-dir %s\n' "$TASK_ID" "$PROJECT_DIR"
+exit 2

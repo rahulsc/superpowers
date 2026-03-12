@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# forge-gate — state gate checker for Forge lifecycle enforcement
+# Usage:
+#   forge-gate check <gate-name> [--project-dir DIR]
+#   forge-gate set <gate-name> <value> [--project-dir DIR]
+
+set -euo pipefail
+
+FORGE_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/../.forge/bin" 2>/dev/null && pwd)" \
+    || FORGE_BIN_DIR=""
+
+# --- Argument parsing ---
+SUBCOMMAND=""
+ARGS=()
+PROJECT_DIR=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --project-dir)
+            shift; PROJECT_DIR="$1"; shift ;;
+        --project-dir=*)
+            PROJECT_DIR="${1#--project-dir=}"; shift ;;
+        -*)
+            shift ;;
+        *)
+            if [ -z "$SUBCOMMAND" ]; then
+                SUBCOMMAND="$1"
+            else
+                ARGS+=("$1")
+            fi
+            shift ;;
+    esac
+done
+
+if [ -z "$PROJECT_DIR" ]; then
+    PROJECT_DIR="${FORGE_PROJECT_DIR:-$(pwd)}"
+fi
+
+# Locate forge-state
+if command -v forge-state &>/dev/null; then
+    FORGE_STATE="forge-state"
+elif [ -x "$FORGE_BIN_DIR/forge-state" ]; then
+    FORGE_STATE="$FORGE_BIN_DIR/forge-state"
+else
+    printf 'error: forge-state not found on PATH\n' >&2
+    exit 1
+fi
+
+case "$SUBCOMMAND" in
+    check)
+        if [ "${#ARGS[@]}" -lt 1 ]; then
+            printf 'error: forge-gate check requires a gate name\n' >&2
+            exit 1
+        fi
+        GATE="${ARGS[0]}"
+
+        VAL=$("$FORGE_STATE" get "$GATE" --project-dir "$PROJECT_DIR" 2>/dev/null || true)
+
+        if [ "$VAL" = "true" ]; then
+            printf 'Gate %s: passed\n' "$GATE"
+            exit 0
+        else
+            printf 'Gate %s: FAILED (not set or not "true"; current value: "%s")\n' "$GATE" "${VAL:-<not set>}"
+            exit 2
+        fi
+        ;;
+
+    set)
+        if [ "${#ARGS[@]}" -lt 2 ]; then
+            printf 'error: forge-gate set requires <gate-name> <value>\n' >&2
+            exit 1
+        fi
+        GATE="${ARGS[0]}"
+        VALUE="${ARGS[1]}"
+        "$FORGE_STATE" set "$GATE" "$VALUE" --project-dir "$PROJECT_DIR"
+        ;;
+
+    "")
+        printf 'Usage: forge-gate <check|set> <gate-name> [value] [--project-dir DIR]\n' >&2
+        exit 1
+        ;;
+
+    *)
+        printf 'error: unknown subcommand: %s\n' "$SUBCOMMAND" >&2
+        exit 1
+        ;;
+esac

@@ -90,12 +90,12 @@ check_strategy "src/utils/helper.py --scope 12" "src/utils/helper.py" 12 "team-r
 
 echo ""
 echo "--- High blast radius ---"
-# Small scope (1-3): elevated, solo
-check_strategy "auth/login.py --scope 2" "auth/login.py" 2 "solo"
+# Small scope (1-3): elevated, solo  (db/migrations/** → critical → high blast)
+check_strategy "db/migrations/001.sql --scope 2" "db/migrations/001.sql" 2 "solo"
 # Medium scope (4-8): critical, team-required
-check_strategy "auth/login.py --scope 6" "auth/login.py" 6 "team-required"
+check_strategy "db/migrations/001.sql --scope 6" "db/migrations/001.sql" 6 "team-required"
 # Large scope (9+): critical, team-required
-check_strategy "auth/login.py --scope 15" "auth/login.py" 15 "team-required"
+check_strategy "db/migrations/001.sql --scope 15" "db/migrations/001.sql" 15 "team-required"
 
 echo ""
 echo "--- The specific example from spec ---"
