@@ -9,11 +9,29 @@ description: Use when implementation is complete, all tests pass, and you need t
 
 Guide completion of development work by presenting clear options and handling chosen workflow.
 
-**Core principle:** Verify tests → Present options → Execute choice → Clean up.
+**Core principle:** Verify gate → Verify tests → Present options → Execute choice → Promote knowledge → Clean up state.
 
-**Announce at start:** "I'm using the finishing-a-development-branch skill to complete this work."
+**Announce at start:** "I'm using the forge:finishing-a-development-branch skill to complete this work."
 
 ## The Process
+
+### Step 0: Verification Gate
+
+**Before doing anything, check that verification has passed:**
+
+```bash
+forge-state get verification.passed
+```
+
+**If not true**, block immediately:
+```
+Cannot finish: verification has not passed.
+Run forge:verification-before-completion first, then retry.
+```
+
+Stop. Don't proceed to Step 1.
+
+**If true:** Continue to Step 1.
 
 ### Step 1: Verify Tests
 
@@ -84,7 +102,7 @@ git merge <feature-branch>
 git branch -d <feature-branch>
 ```
 
-Then: Cleanup worktree (Step 5)
+Then: Knowledge Promotion (Step 5) → Cleanup (Step 6)
 
 #### Option 2: Push and Create PR
 
@@ -103,13 +121,13 @@ EOF
 )"
 ```
 
-Then: Cleanup worktree (Step 5)
+Then: Knowledge Promotion (Step 5) → Cleanup (Step 6)
 
 #### Option 3: Keep As-Is
 
 Report: "Keeping branch <name>. Worktree preserved at <path>."
 
-**Don't cleanup worktree.**
+**Don't cleanup worktree.** Skip to Knowledge Promotion (Step 5).
 
 #### Option 4: Discard
 
@@ -131,11 +149,46 @@ git checkout <base-branch>
 git branch -D <feature-branch>
 ```
 
-Then: Cleanup worktree (Step 5)
+Then: Cleanup (Step 6) — skip knowledge promotion for discarded work.
 
-### Step 5: Cleanup Worktree
+### Step 5: Knowledge Promotion
 
-**For Options 1, 2, 4:**
+**After merge or PR (Options 1, 2, 3), promote validated discoveries from `.forge/local/` to `.forge/shared/`:**
+
+1. **Scan for discoveries:**
+   ```bash
+   forge-memory query discovery
+   ```
+
+2. **Present validated discoveries to user:**
+   ```
+   Found <N> discoveries during this work:
+
+   1. [architecture] <discovery summary> → propose target: .forge/shared/architecture.md
+   2. [convention] <discovery summary> → propose target: .forge/shared/conventions.md
+   3. [decision] <discovery summary> → propose target: .forge/shared/decisions/<name>.md
+
+   Approve/skip each? (a=approve, s=skip, A=approve all)
+   ```
+
+3. **For each approved discovery**, append to the target file in `.forge/shared/`.
+
+4. **Skip entirely for Option 4** (discarded work has no discoveries to promote).
+
+### Step 6: State Cleanup and Worktree Teardown
+
+**Clean `.forge/local/` evidence for the completed feature:**
+
+```bash
+# Clean local evidence and state for this feature
+rm -rf .forge/local/evidence/<feature-branch>/
+rm -rf .forge/local/plans/<feature-branch>/
+
+# Mark phase complete
+forge-state set phase complete
+```
+
+**Worktree cleanup (Options 1, 2, 4):**
 
 Check if in worktree:
 ```bash
@@ -149,16 +202,32 @@ git worktree remove <worktree-path>
 
 **For Option 3:** Keep worktree.
 
+**Team mode — tear down implementer worktrees:**
+
+```bash
+# Get implementer worktree paths from state
+forge-state get worktree.implementers.*
+
+# Remove each implementer worktree
+for path in <implementer-worktree-paths>; do
+    git worktree remove "$path"
+done
+```
+
 ## Quick Reference
 
-| Option | Merge | Push | Keep Worktree | Cleanup Branch |
-|--------|-------|------|---------------|----------------|
-| 1. Merge locally | ✓ | - | - | ✓ |
-| 2. Create PR | - | ✓ | ✓ | - |
-| 3. Keep as-is | - | - | ✓ | - |
-| 4. Discard | - | - | - | ✓ (force) |
+| Option | Merge | Push | Keep Worktree | Cleanup Branch | Promote Knowledge |
+|--------|-------|------|---------------|----------------|-------------------|
+| 1. Merge locally | yes | - | - | yes | yes |
+| 2. Create PR | - | yes | yes | - | yes |
+| 3. Keep as-is | - | - | yes | - | yes |
+| 4. Discard | - | - | - | yes (force) | - |
 
 ## Common Mistakes
+
+**Skipping verification gate**
+- **Problem:** Finish unverified work
+- **Fix:** Always check `forge-state get verification.passed` before proceeding
 
 **Skipping test verification**
 - **Problem:** Merge broken code, create failing PR
@@ -169,44 +238,55 @@ git worktree remove <worktree-path>
 - **Fix:** Present exactly 4 structured options
 
 **Automatic worktree cleanup**
-- **Problem:** Remove worktree when might need it (Option 2, 3)
-- **Fix:** Only cleanup for Options 1 and 4
+- **Problem:** Remove worktree when might need it (Option 3)
+- **Fix:** Only cleanup worktrees for Options 1, 2, and 4
 
 **No confirmation for discard**
 - **Problem:** Accidentally delete work
 - **Fix:** Require typed "discard" confirmation
 
+**Forgetting knowledge promotion**
+- **Problem:** Discoveries lost when branch is finished
+- **Fix:** Always scan forge-memory for discoveries before cleanup
+
+**Leaving stale state**
+- **Problem:** `.forge/local/` accumulates stale evidence from old features
+- **Fix:** Always clean `.forge/local/` evidence for completed feature
+
 ## Red Flags
 
 **Never:**
+- Proceed without checking verification.passed
 - Proceed with failing tests
 - Merge without verifying tests on result
 - Delete work without confirmation
 - Force-push without explicit request
 
 **Always:**
+- Check verification gate before anything else
 - Verify tests before offering options
 - Present exactly 4 options
 - Get typed confirmation for Option 4
-- Clean up worktree for Options 1 & 4 only
+- Promote knowledge before cleanup
+- Clean `.forge/local/` evidence after finish
+- Clean up worktree for Options 1, 2 & 4
 
 ## Integration
 
 **Called by:**
-- **subagent-driven-development** (Step 7) - After all tasks complete
-- **executing-plans** (Step 5) - After all batches complete
+- **forge:subagent-driven-development** (Step 7) - After all tasks complete
+- **forge:executing-plans** (Step 5) - After all batches complete
+- **forge:agent-team-driven-development** (Phase 3) - After all waves and reviews pass
 
 **Pairs with:**
-- **using-git-worktrees** - Cleans up worktree created by that skill
+- **forge:using-git-worktrees** - Cleans up worktree created by that skill
+- **forge:verification-before-completion** - Must pass before this skill runs
 
 ## Team Context
 
 When completing work done by an agent team:
 
 1. **Shutdown all specialists** — send `shutdown_request` via SendMessage to each implementer before merging
-2. **Cleanup per-agent worktrees** — ensure all implementer worktrees are removed after their branches are merged
+2. **Cleanup per-agent worktrees** — tear down implementer worktrees from `forge-state get worktree.implementers.*`
 3. **Final cross-cutting review** — dispatch a code reviewer for the entire implementation (all tasks combined) before presenting merge options
-4. See `agent-team-driven-development` Phase 3 for the complete cleanup sequence
-
-**Called by:**
-- **agent-team-driven-development** (Phase 3) — After all waves complete and all reviews pass
+4. See `forge:agent-team-driven-development` Phase 3 for the complete cleanup sequence
