@@ -4,7 +4,7 @@
 #   forge-memory add <type> <content> [--project-dir DIR]
 #   forge-memory query <type> [--similar <text>] [--project-dir DIR]
 
-set -uo pipefail
+set -euo pipefail
 
 # --- Locate library directory ---
 FORGE_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

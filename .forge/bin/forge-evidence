@@ -4,7 +4,7 @@
 #   forge-evidence add <task-id> <artifact> [--project-dir DIR]
 #   forge-evidence list <task-id> [--project-dir DIR]
 
-set -uo pipefail
+set -euo pipefail
 
 # --- Locate library directory ---
 FORGE_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

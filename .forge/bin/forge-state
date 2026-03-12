@@ -6,7 +6,7 @@
 #   forge-state set <key> <value> [--project-dir DIR]
 #   forge-state backend [--project-dir DIR]
 
-set -uo pipefail
+set -euo pipefail
 
 # --- Locate library directory ---
 FORGE_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

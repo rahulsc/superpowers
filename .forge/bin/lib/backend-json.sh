@@ -2,46 +2,19 @@
 # JSON backend implementation for forge-state
 # Provides: json_init, json_get, json_set, json_memory_add, json_memory_query,
 #           json_evidence_add, json_evidence_list
-
-# Ensure jq is not required — use only bash builtins and basic tools (grep, sed, awk)
-
-# --- Helpers ---
-
-_json_escape() {
-    # Escape a string for JSON embedding
-    local s="$1"
-    s="${s//\\/\\\\}"
-    s="${s//\"/\\\"}"
-    s="${s//$'\n'/\\n}"
-    s="${s//$'\r'/\\r}"
-    s="${s//$'\t'/\\t}"
-    printf '%s' "$s"
-}
-
-_json_unescape() {
-    # Unescape a JSON string value (basic)
-    local s="$1"
-    # Use printf to handle common escape sequences
-    printf '%b' "${s//\\\"/\"}"
-}
-
-_json_read_value() {
-    # Read a value for a key from a simple flat JSON object { "key": "value", ... }
-    # Uses grep/sed — safe for single-level string values
-    local file="$1"
-    local key="$2"
-    # Escape key for regex
-    local escaped_key
-    escaped_key=$(printf '%s' "$key" | sed 's/[[\.*^$()+?{|]/\\&/g')
-    # Match: "key": "value" — value is everything between the quotes
-    local raw
-    raw=$(grep -m1 "\"${escaped_key}\"" "$file" | sed 's/.*"'"${escaped_key}"'": *"\(.*\)".*/\1/')
-    # Unescape \n \t \" \\
-    printf '%s' "$raw" | sed 's/\\n/\n/g; s/\\t/\t/g; s/\\"/"/g; s/\\\\/\\/g'
-}
+#
+# Requires python3 for correctness. Falls back to grep/sed for read-only ops
+# on simple ASCII values only. All writes require python3.
 
 _timestamp() {
     date -u +"%Y-%m-%dT%H:%M:%SZ"
+}
+
+_require_python3() {
+    if ! command -v python3 &>/dev/null; then
+        printf 'error: python3 is required for JSON backend writes\n' >&2
+        return 1
+    fi
 }
 
 # --- Init ---
@@ -52,9 +25,12 @@ json_init() {
     mkdir -p "$local_dir/memory"
     mkdir -p "$local_dir/evidence"
 
-    # Create state.json if absent
+    # Create state.json atomically if absent
     if [ ! -f "$local_dir/state.json" ]; then
-        printf '{}' > "$local_dir/state.json"
+        local tmp
+        tmp=$(mktemp "${local_dir}/state.json.XXXXXX")
+        printf '{}' > "$tmp"
+        mv "$tmp" "$local_dir/state.json"
     fi
 
     # Create .gitignore
@@ -75,19 +51,20 @@ json_get() {
         return 1
     fi
 
-    # Use python3 if available for reliable JSON parsing, else fallback to sed
+    # C1 fix: pass file path as argv, not interpolated into Python source
     if command -v python3 &>/dev/null; then
-        local val
-        val=$(python3 -c "
+        local val rc
+        val=$(python3 - "$state_file" "$key" <<'PYEOF'
 import json, sys
-with open('$state_file') as f:
+with open(sys.argv[1]) as f:
     data = json.load(f)
-key = sys.argv[1]
+key = sys.argv[2]
 if key not in data:
     sys.exit(1)
 print(data[key], end='')
-" "$key" 2>/dev/null)
-        local rc=$?
+PYEOF
+        )
+        rc=$?
         if [ $rc -ne 0 ]; then
             printf 'error: key not found: %s\n' "$key" >&2
             return 1
@@ -96,7 +73,8 @@ print(data[key], end='')
         return 0
     fi
 
-    # Fallback: grep-based (works for simple string values without embedded quotes)
+    # Fallback (no python3): grep-based — safe only for simple ASCII values
+    # M2 fix: make limitation explicit; values containing " may be truncated
     local escaped_key
     escaped_key=$(printf '%s' "$key" | sed 's/[[\.*^$()+?{|]/\\&/g')
     local line
@@ -105,9 +83,8 @@ print(data[key], end='')
         printf 'error: key not found: %s\n' "$key" >&2
         return 1
     fi
-    local val
-    val=$(printf '%s' "$line" | sed 's/.*"'"${escaped_key}"'": *"\(.*\)".*/\1/')
-    printf '%s' "$val" | sed 's/\\n/\n/g; s/\\t/\t/g; s/\\"/"/g; s/\\\\/\\/g'
+    printf '%s' "$line" | sed 's/.*"'"${escaped_key}"'": *"\(.*\)".*/\1/' \
+        | sed 's/\\n/\n/g; s/\\t/\t/g; s/\\"/"/g; s/\\\\/\\/g'
 }
 
 json_set() {
@@ -117,48 +94,52 @@ json_set() {
     local state_file="$project_dir/.forge/local/state.json"
 
     if [ ! -f "$state_file" ]; then
-        printf '{}' > "$state_file"
+        local tmp0
+        tmp0=$(mktemp "${state_file}.XXXXXX")
+        printf '{}' > "$tmp0"
+        mv "$tmp0" "$state_file"
     fi
 
+    # C1 fix: pass file path as argv; M3 fix: write atomically via temp file
     if command -v python3 &>/dev/null; then
-        python3 -c "
+        local tmp
+        tmp=$(mktemp "${state_file}.XXXXXX")
+        python3 - "$state_file" "$key" "$value" "$tmp" <<'PYEOF'
 import json, sys
-with open('$state_file') as f:
+with open(sys.argv[1]) as f:
     data = json.load(f)
-key = sys.argv[1]
-val = sys.argv[2]
-data[key] = val
-with open('$state_file', 'w') as f:
+data[sys.argv[2]] = sys.argv[3]
+with open(sys.argv[4], 'w') as f:
     json.dump(data, f, indent=2)
-" "$key" "$value" 2>/dev/null
-        return $?
+PYEOF
+        local rc=$?
+        if [ $rc -eq 0 ]; then
+            mv "$tmp" "$state_file"
+        else
+            rm -f "$tmp"
+            return $rc
+        fi
+        return 0
     fi
 
-    # Fallback: reconstruct JSON with sed (limited but functional for simple values)
+    # Fallback (no python3): limited sed-based approach
     local esc_key esc_val
-    esc_key=$(_json_escape "$key")
-    esc_val=$(_json_escape "$value")
+    esc_key=$(printf '%s' "$key" | sed 's/[[\.*^$()+?{|]/\\&/g; s/"/\\"/g')
+    esc_val=$(printf '%s' "$value" | sed 's/\\/\\\\/g; s/"/\\"/g')
 
-    local tmp
-    tmp=$(mktemp)
-    # Remove existing key line if present (simple approach)
+    local tmp content
+    tmp=$(mktemp "${state_file}.XXXXXX")
     grep -v "\"${esc_key}\":" "$state_file" > "$tmp" 2>/dev/null || printf '{}' > "$tmp"
 
-    # Read current content, strip trailing } and whitespace, inject new key
-    local content
     content=$(cat "$tmp")
-    # If empty object
     if printf '%s' "$content" | grep -q '^\s*{}'; then
-        printf '{\n  "%s": "%s"\n}\n' "$esc_key" "$esc_val" > "$state_file"
+        printf '{\n  "%s": "%s"\n}\n' "$esc_key" "$esc_val" > "$tmp"
     else
-        # Insert before closing brace
-        # Remove trailing }
         content="${content%\}}"
-        # Trim trailing comma and whitespace from last entry
         content=$(printf '%s' "$content" | sed 's/[,[:space:]]*$//')
-        printf '%s,\n  "%s": "%s"\n}\n' "$content" "$esc_key" "$esc_val" > "$state_file"
+        printf '%s,\n  "%s": "%s"\n}\n' "$content" "$esc_key" "$esc_val" > "$tmp"
     fi
-    rm -f "$tmp"
+    mv "$tmp" "$state_file"
 }
 
 # --- Memory ---
@@ -173,44 +154,59 @@ json_memory_add() {
     mkdir -p "$memory_dir"
 
     if [ ! -f "$memory_file" ]; then
-        printf '[]' > "$memory_file"
+        local tmp0
+        tmp0=$(mktemp "${memory_file}.XXXXXX")
+        printf '[]' > "$tmp0"
+        mv "$tmp0" "$memory_file"
     fi
 
     local ts
     ts=$(_timestamp)
 
+    # C1 fix: pass file paths and values as argv; M3 fix: atomic write via temp file
     if command -v python3 &>/dev/null; then
-        python3 -c "
+        local tmp
+        tmp=$(mktemp "${memory_file}.XXXXXX")
+        python3 - "$memory_file" "$content" "$ts" "$tmp" <<'PYEOF'
 import json, sys
-with open('$memory_file') as f:
+with open(sys.argv[1]) as f:
     entries = json.load(f)
 entries.append({
-    'content': sys.argv[1],
+    'content': sys.argv[2],
     'confidence': 1.0,
-    'created_at': sys.argv[2]
+    'created_at': sys.argv[3]
 })
-with open('$memory_file', 'w') as f:
+with open(sys.argv[4], 'w') as f:
     json.dump(entries, f, indent=2)
-" "$content" "$ts" 2>/dev/null
-        return $?
+PYEOF
+        local rc=$?
+        if [ $rc -eq 0 ]; then
+            mv "$tmp" "$memory_file"
+        else
+            rm -f "$tmp"
+            return $rc
+        fi
+        return 0
     fi
 
-    # Fallback: append JSON entry manually
+    # Fallback (no python3): manual append
     local esc_content
-    esc_content=$(_json_escape "$content")
+    esc_content=$(printf '%s' "$content" | sed 's/\\/\\\\/g; s/"/\\"/g')
     local existing
     existing=$(cat "$memory_file")
+    local tmp
+    tmp=$(mktemp "${memory_file}.XXXXXX")
 
     if printf '%s' "$existing" | grep -q '^\s*\[\s*\]'; then
         printf '[\n  {"content": "%s", "confidence": 1.0, "created_at": "%s"}\n]\n' \
-            "$esc_content" "$ts" > "$memory_file"
+            "$esc_content" "$ts" > "$tmp"
     else
-        # Remove trailing ]
         existing="${existing%\]}"
         existing=$(printf '%s' "$existing" | sed 's/[[:space:]]*$//')
         printf '%s,\n  {"content": "%s", "confidence": 1.0, "created_at": "%s"}\n]\n' \
-            "$existing" "$esc_content" "$ts" > "$memory_file"
+            "$existing" "$esc_content" "$ts" > "$tmp"
     fi
+    mv "$tmp" "$memory_file"
 }
 
 json_memory_query() {
@@ -220,28 +216,27 @@ json_memory_query() {
     local memory_file="$project_dir/.forge/local/memory/${type}.json"
 
     if [ ! -f "$memory_file" ]; then
-        # No entries — exit 0 with empty output
         return 0
     fi
 
+    # C1 fix: pass file path as argv
     if command -v python3 &>/dev/null; then
-        python3 -c "
+        python3 - "$memory_file" "$similar" <<'PYEOF'
 import json, sys
-with open('$memory_file') as f:
+with open(sys.argv[1]) as f:
     entries = json.load(f)
-similar = sys.argv[1] if len(sys.argv) > 1 else ''
-# Reverse for newest first
+similar = sys.argv[2] if len(sys.argv) > 2 else ''
 entries = list(reversed(entries))
 if similar:
     keywords = similar.lower().split()
     entries = [e for e in entries if any(kw in e.get('content','').lower() for kw in keywords)]
 for e in entries:
     print(e.get('content', ''))
-" "${similar}" 2>/dev/null
+PYEOF
         return 0
     fi
 
-    # Fallback: extract content fields
+    # Fallback: extract content fields (may truncate values with ")
     grep '"content"' "$memory_file" | sed 's/.*"content": *"\(.*\)".*/\1/' | tac
 }
 
@@ -257,42 +252,58 @@ json_evidence_add() {
     mkdir -p "$evidence_dir"
 
     if [ ! -f "$evidence_file" ]; then
-        printf '[]' > "$evidence_file"
+        local tmp0
+        tmp0=$(mktemp "${evidence_file}.XXXXXX")
+        printf '[]' > "$tmp0"
+        mv "$tmp0" "$evidence_file"
     fi
 
     local ts
     ts=$(_timestamp)
 
+    # C1 fix: pass file paths and values as argv; M3 fix: atomic write via temp file
     if command -v python3 &>/dev/null; then
-        python3 -c "
+        local tmp
+        tmp=$(mktemp "${evidence_file}.XXXXXX")
+        python3 - "$evidence_file" "$artifact" "$ts" "$tmp" <<'PYEOF'
 import json, sys
-with open('$evidence_file') as f:
+with open(sys.argv[1]) as f:
     entries = json.load(f)
 entries.append({
-    'artifact': sys.argv[1],
-    'created_at': sys.argv[2]
+    'artifact': sys.argv[2],
+    'created_at': sys.argv[3]
 })
-with open('$evidence_file', 'w') as f:
+with open(sys.argv[4], 'w') as f:
     json.dump(entries, f, indent=2)
-" "$artifact" "$ts" 2>/dev/null
-        return $?
+PYEOF
+        local rc=$?
+        if [ $rc -eq 0 ]; then
+            mv "$tmp" "$evidence_file"
+        else
+            rm -f "$tmp"
+            return $rc
+        fi
+        return 0
     fi
 
-    # Fallback: append entry manually
+    # Fallback (no python3): manual append
     local esc_artifact
-    esc_artifact=$(_json_escape "$artifact")
+    esc_artifact=$(printf '%s' "$artifact" | sed 's/\\/\\\\/g; s/"/\\"/g')
     local existing
     existing=$(cat "$evidence_file")
+    local tmp
+    tmp=$(mktemp "${evidence_file}.XXXXXX")
 
     if printf '%s' "$existing" | grep -q '^\s*\[\s*\]'; then
         printf '[\n  {"artifact": "%s", "created_at": "%s"}\n]\n' \
-            "$esc_artifact" "$ts" > "$evidence_file"
+            "$esc_artifact" "$ts" > "$tmp"
     else
         existing="${existing%\]}"
         existing=$(printf '%s' "$existing" | sed 's/[[:space:]]*$//')
         printf '%s,\n  {"artifact": "%s", "created_at": "%s"}\n]\n' \
-            "$existing" "$esc_artifact" "$ts" > "$evidence_file"
+            "$existing" "$esc_artifact" "$ts" > "$tmp"
     fi
+    mv "$tmp" "$evidence_file"
 }
 
 json_evidence_list() {
@@ -301,18 +312,18 @@ json_evidence_list() {
     local evidence_file="$project_dir/.forge/local/evidence/${task_id}.json"
 
     if [ ! -f "$evidence_file" ]; then
-        # No evidence — exit 0, empty output
         return 0
     fi
 
+    # C1 fix: pass file path as argv
     if command -v python3 &>/dev/null; then
-        python3 -c "
-import json
-with open('$evidence_file') as f:
+        python3 - "$evidence_file" <<'PYEOF'
+import json, sys
+with open(sys.argv[1]) as f:
     entries = json.load(f)
 for e in entries:
     print(e.get('artifact', ''))
-" 2>/dev/null
+PYEOF
         return 0
     fi
 
