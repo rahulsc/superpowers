@@ -19,20 +19,19 @@ Do NOT use `EnterPlanMode` or `ExitPlanMode` during plan writing. These tools tr
 
 ## Verification Gate
 
-Before starting, check `.superpowers/state.yml`:
+Before starting, check Forge state:
 
+```bash
+forge-gate check design.approved --project-dir .   # user has signed off on design
+forge-state get worktree.main.path                  # isolated workspace must exist
 ```
-REQUIRED:
-  design.approved == true       # user has signed off on design
-  worktree.main.path accessible # isolated workspace exists
 
-IF team plan:
-  team.roster exists            # composing-teams has run
-
-IF any check fails:
-  Stop. Report which precondition is missing.
-  Do not write a plan until prerequisites are met.
+For team plans also check:
+```bash
+forge-state get team.roster                         # composing-teams has run
 ```
+
+If any check fails: stop. Report which precondition is missing. Do not write a plan until prerequisites are met.
 
 ## Scope Check
 
@@ -56,24 +55,22 @@ docs/<project>/
 
 `<project>` is the kebab-case name from the design doc (e.g., `user-auth`, `payment-refactor`).
 
-**Do NOT use date-prefixed filenames.** The directory name carries enough context and state.yml stores the path for cross-session discovery.
+**Do NOT use date-prefixed filenames.** The directory name carries enough context and Forge state stores the path for cross-session discovery.
 
-**Worktree context:** The plan executes in the worktree at `worktree.main.path` (from state.yml). Include this path context in the plan header so executors know where to work.
+**Worktree context:** The plan executes in the worktree at `worktree.main.path` (from `forge-state get worktree.main.path`). Include this path context in the plan header so executors know where to work.
 
 ## After Writing
 
-Write to state.yml:
+Write to Forge state:
 
-```yaml
-plan:
-  path: docs/<project>/plans/plan.md
-  status: pending
-  executor: ""           # filled in when user picks execution approach
-  total_tasks: N
-phase: planning
+```bash
+forge-state set plan.path "docs/<project>/plans/plan.md"
+forge-state set plan.status "pending"
+forge-state set plan.total_tasks "N"
+forge-state set phase "planning"
 ```
 
-**Plan frontmatter status:** The plan.md template includes `status: pending` in its YAML frontmatter. Executors update this to `status: executed` on completion. This allows tools and agents to check plan status directly from the document without consulting state.yml.
+**Plan frontmatter status:** The plan.md template includes `status: pending` in its YAML frontmatter. Executors update this to `status: executed` on completion. This allows tools and agents to check plan status directly from the document without consulting state.
 
 ## File Structure
 
@@ -95,6 +92,25 @@ This structure informs the task decomposition. Each task should produce self-con
 
 Within each task, the implementer follows TDD: write failing test, verify it fails, implement, verify it passes, commit. The plan specifies *what* the test should cover and what failure to expect — not the exact test code.
 
+## Risk-Tier-Aware Planning
+
+Before writing the plan, run risk classification on the files that will be touched:
+
+```bash
+classify-risk --files "<path1> <path2>" --project-dir .
+```
+
+The detected tier determines plan ceremony:
+
+| Tier | Required plan artifacts |
+|------|------------------------|
+| minimal | Goal + tasks (no design-doc gate required) |
+| standard | Goal + tasks + test expectations + forge-gate check plan.approved |
+| elevated | All standard + design doc reference + wave analysis if team |
+| critical | All elevated + risk register reference + rollback plan + security review note |
+
+Include the tier in the plan header. If classify-risk is unavailable, infer tier from the file paths being modified using the policy rules in `.forge/policies/`.
+
 ## Plan Document Structure
 
 ### plan.md
@@ -102,11 +118,13 @@ Within each task, the implementer follows TDD: write failing test, verify it fai
 ```markdown
 ---
 status: pending
+risk_tier: <minimal|standard|elevated|critical>
 ---
 
 # [Feature Name] Implementation Plan
 
 > See [design](../design/design.md) for context and rationale.
+> **Risk tier:** [tier] — [required artifacts for this tier]
 > **For Claude:** Use [execution-skill] to execute this plan.
 
 **Goal:** [One sentence]
@@ -314,7 +332,7 @@ After completing each chunk of the plan:
 - Exact file paths always
 - Specify what/where/why — not complete code
 - Every task needs test expectations (behavior + red failure + green)
-- Reference relevant skills by name: `superpowers:skill-name`
+- Reference relevant skills by name: `forge:skill-name`
 - DRY, YAGNI, TDD, frequent commits
 - For team plans: every task must have Specialist, Depends on, Produces fields
 - For team plans: Wave Analysis must justify why same-wave tasks are parallel-safe
@@ -345,27 +363,27 @@ After saving the plan and writing state.yml, offer execution choice:
 
 **"Plan saved to `docs/<project>/plans/plan.md`. Two execution options:**
 
-**1. Agent Team-Driven (this session)** — Parallel specialist agents, wave-based execution, two-stage review after each task. Best for 4+ tasks with parallelism. Uses `superpowers:agent-team-driven-development`.
+**1. Agent Team-Driven (this session)** — Parallel specialist agents, wave-based execution, two-stage review after each task. Best for 4+ tasks with parallelism. Uses `forge:agent-team-driven-development`.
 
-**2. Subagent-Driven (this session)** — Fresh subagent per task, review between tasks. Best for serial plans or fewer tasks. Uses `superpowers:subagent-driven-development`.
+**2. Subagent-Driven (this session)** — Fresh subagent per task, review between tasks. Best for serial plans or fewer tasks. Uses `forge:subagent-driven-development`.
 
 **Which approach?"**
 
-**Automatic fallback:** If the harness does not support subagents (no TaskTool available), execution falls back to `superpowers:executing-plans` which runs tasks in the current session with batch checkpoints.
+**Automatic fallback:** If the harness does not support subagents (no TaskTool available), execution falls back to `forge:executing-plans` which runs tasks in the current session with batch checkpoints.
 
-After user chooses, update state.yml `plan.executor` field, then invoke the chosen execution skill.
+After user chooses, run `forge-state set plan.executor "<skill>"`, then invoke the chosen execution skill.
 
 ## Integration
 
 **Before this skill:**
-- **superpowers:brainstorming** — Creates the design this skill plans from; `design.approved` must be true
-- **superpowers:using-git-worktrees** — Isolated workspace; `worktree.main.path` must exist
+- **forge:brainstorming** — Creates the design this skill plans from; `design.approved` must be true
+- **forge:using-git-worktrees** — Isolated workspace; `worktree.main.path` must exist
 
 **After this skill:**
-- **superpowers:agent-team-driven-development** — Parallel execution (4+ tasks with independence)
-- **superpowers:subagent-driven-development** — Serial execution (same session)
-- **superpowers:executing-plans** — Fallback for no-subagent platforms
+- **forge:agent-team-driven-development** — Parallel execution (4+ tasks with independence)
+- **forge:subagent-driven-development** — Serial execution (same session)
+- **forge:executing-plans** — Fallback for no-subagent platforms
 
-**Reads from state.yml:** `design.approved`, `design.path`, `worktree.main.path`, `team.roster`
-**Writes to state.yml:** `plan.path`, `plan.status`, `plan.executor`, `plan.total_tasks`, `phase: planning`
+**Reads from Forge state:** `design.approved`, `design.path`, `worktree.main.path`, `team.roster`
+**Writes to Forge state:** `plan.path`, `plan.status`, `plan.executor`, `plan.total_tasks`, `phase`
 **Creates:** `docs/<project>/plans/plan.md`, `docs/<project>/plans/tasks/*.md`
