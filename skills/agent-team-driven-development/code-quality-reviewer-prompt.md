@@ -8,7 +8,7 @@ Dispatch as a **subagent** (not a team member) for unbiased quality review.
 
 ```yaml
 Agent tool:
-  subagent_type: superpowers:code-reviewer
+  subagent_type: forge:code-reviewer
   description: "Code quality review: Task N"
   prompt: |
     Review the implementation of Task N: [task name]

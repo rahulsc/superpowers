@@ -35,9 +35,9 @@ Execute plans by orchestrating a team of persistent specialist agents working in
 |------|------------|-------------|-------|-------|
 | Lead (you) | Main agent | Session lifetime | opus | 1 |
 | Specialist Implementer | Agent definition from team roster | Persistent, reused across waves | sonnet | 1 per parallel task (max 3) |
-| QA Agent | `superpowers:qa-engineer` or roster entry | Persistent (pipelined TDD) | sonnet | 0-1 |
+| QA Agent | `forge:qa-engineer` or roster entry | Persistent (pipelined TDD) | sonnet | 0-1 |
 | Spec Reviewer | Subagent | Fresh per review | sonnet | As needed |
-| Code Quality Reviewer | `superpowers:code-reviewer` subagent | Fresh per review | sonnet | As needed |
+| Code Quality Reviewer | `forge:code-reviewer` subagent | Fresh per review | sonnet | As needed |
 
 **Model tiering:** Lead and final reviewers use opus (planning, coordination, judgment). Implementers and spec reviewers default to sonnet (sufficient for focused tasks, lower cost). If the user has set model preferences in composing-teams, follow those.
 
@@ -50,7 +50,7 @@ When assigning tasks to waves, note the complexity tier for each task. If a pers
 
 **Agent selection hierarchy:**
 1. **Project agents** — if the project has custom agent definitions (e.g., `react-engineer.md` in `.claude/agents/`), use those
-2. **Shipped fallback agents** — use `superpowers:code-reviewer`, `superpowers:qa-engineer` etc.
+2. **Shipped fallback agents** — use `forge:code-reviewer`, `forge:qa-engineer` etc.
 3. **Raw model tiers** — `general-purpose` with sonnet/haiku as last resort
 
 When a roster exists from composing-teams, use the agent definitions and models it specifies.
@@ -120,7 +120,7 @@ Then point the implementer at the worktree path.
 **Lifecycle:**
 1. Each implementer gets their own worktree (automatically via `isolation: "worktree"` in Claude Code, or manually created on other platforms)
 2. Implementers commit to their worktree's branch
-3. Lead records each implementer's worktree in state.yml under `worktree.implementers.<name>`
+3. Lead records each implementer's worktree via `forge-state set worktree.implementers.<name>.*`
 4. After each wave's reviews pass, lead merges implementer branches into main worktree
 5. Before starting next wave, lead verifies merge is clean and all tests pass
 6. Next wave's implementers branch from the clean merged state
@@ -135,22 +135,21 @@ Then point the implementer at the worktree path.
 
 ## State Tracking
 
-After each wave completes, update `.superpowers/state.yml`:
+After each wave completes, update `.forge/` state:
 
-```yaml
-plan:
-  completed_tasks: [1, 2, 3]   # add task numbers as they complete
-  current_wave: 2               # increment after wave completes
+```bash
+forge-state set plan.completed_tasks "[1, 2, 3]"   # add task numbers as they complete
+forge-state set plan.current_wave 2                  # increment after wave completes
 
-worktree:
-  implementers:
-    react-engineer:
-      path: /tmp/.claude/worktrees/wt-abc123
-      branch: wt-abc123
-      last_sha: abc1234          # update after each commit
+forge-state set worktree.implementers.react-engineer.path /tmp/.claude/worktrees/wt-abc123
+forge-state set worktree.implementers.react-engineer.branch wt-abc123
+forge-state set worktree.implementers.react-engineer.last_sha abc1234
+
+forge-evidence add task-3 command "npm test: 34 passed, 0 failed, exit 0"
+forge-evidence add task-3 diff "abc1234: 3 files changed, 87 insertions(+), 12 deletions(-)"
 ```
 
-On session resume (cold start), read state.yml to find `plan.current_wave` and `plan.completed_tasks` — skip completed tasks, resume from current wave.
+On session resume (cold start), read state via `forge-state get plan.current_wave` and `forge-state get plan.completed_tasks` — skip completed tasks, resume from current wave.
 
 ## Pre-Flight Context Check
 
@@ -172,7 +171,7 @@ digraph agent_team {
     node [shape=box];
 
     plan_analysis [label="Plan Analysis:\nRead plan, extract tasks,\nanalyze dependencies"];
-    team_setup [label="Team Setup:\nGroup into waves,\ndecide specializations,\nTeamCreate, TaskCreate\nRead state.yml if resuming"];
+    team_setup [label="Team Setup:\nGroup into waves,\ndecide specializations,\nTeamCreate, TaskCreate\nforge-state get if resuming"];
     qa_wave0 [label="If QA in roster:\nWave 0 — QA writes\ntests for Wave 1" style=dashed];
     spawn [label="Spawn Implementers:\nOne per wave-1 task\n(isolation: worktree)"];
 
@@ -188,17 +187,17 @@ digraph agent_team {
         code_review [label="Code Quality Review:\nDispatch per task"];
         code_pass [label="Quality passes?" shape=diamond];
         fix_quality [label="Implementer\nfixes quality issues"];
-        task_complete [label="Mark task complete\nUpdate state.yml"];
+        task_complete [label="Mark task complete\nforge-state set + forge-evidence add"];
     }
 
-    merge [label="Between Waves:\nMerge worktree branches,\nverify integration\nUpdate state.yml"];
+    merge [label="Between Waves:\nMerge worktree branches,\nverify integration\nforge-state set + forge-evidence add"];
     context_check [label="Context < 50%?" shape=diamond];
     compact [label="/compact"];
     wave_check [label="More waves?" shape=diamond];
     next_wave [label="Assign next wave tasks\nto implementers"];
     final_review [label="Final cross-cutting\ncode review"];
     shutdown [label="Shutdown implementers,\nTeamDelete"];
-    finish [label="Use superpowers:\nfinishing-a-development-branch" shape=doublecircle];
+    finish [label="Use forge:finishing-\na-development-branch" shape=doublecircle];
 
     plan_analysis -> team_setup;
     team_setup -> qa_wave0;
@@ -231,7 +230,7 @@ digraph agent_team {
 
 ### Phase 1: Plan Analysis & Team Setup
 
-1. **Read state.yml** — if resuming, find `plan.current_wave` and `plan.completed_tasks`, skip to current wave
+1. **Read `.forge/` state** — if resuming, `forge-state get plan.current_wave` and `forge-state get plan.completed_tasks`, skip to current wave
 2. **Read plan** once, extract every task with full description
 3. **Analyze dependencies** between tasks (see Dependency Analysis below)
 4. **Group into waves** — tasks in same wave must be independent and not touch same files
@@ -263,7 +262,13 @@ digraph agent_team {
    - Re-review loop bound: max 3 cycles, then escalate with rejection history
 5. **Code quality review** — dispatch subagent using `./code-quality-reviewer-prompt.md`
    - Same fix loop, same 3-cycle bound
-6. **Mark task complete** via `TaskUpdate`, update `plan.completed_tasks` in state.yml
+6. **Mark task complete** via `TaskUpdate`, `forge-state set plan.completed_tasks`, `forge-evidence add <task-id> <artifact>`
+
+**Risk-tier-aware review ceremony:** Scale review depth to the project's risk tier (from `forge-state get risk.tier`):
+- **Minimal tier:** Light review — single combined spec+quality pass per task
+- **Standard tier:** Standard two-stage review (spec compliance then code quality)
+- **Elevated tier:** Standard two-stage + `forge:validating-wave-compliance` between waves
+- **Critical tier:** Standard two-stage + `forge:validating-wave-compliance` + security review pass between waves
 
 **Pipelined TDD enforcement:** If QA wrote tests for this wave, verify each implementer's completion report includes both RED evidence (QA's test failed before implementation) and GREEN evidence (test passes after). Reject reports missing either.
 
@@ -273,18 +278,20 @@ digraph agent_team {
 1. All tasks in current wave must pass both reviews before starting next wave
 2. Merge all implementer worktree branches into main worktree
 3. Verify integration by running tests on merged result
+3.5. **Wave validation (elevated/critical tiers):** Dispatch `forge:validating-wave-compliance` to verify cross-task consistency, evidence completeness, and integration health before proceeding. At elevated tier, this is advisory; at critical tier, failures block the next wave.
 4. **If QA in roster:** Have QA agent write tests for next+1 wave's tasks in the lead's worktree (e.g., while Wave 2 implementers work, QA writes tests for Wave 3). This keeps the pipeline flowing — implementers always have pre-written tests waiting.
-5. Update `plan.current_wave` in state.yml
-6. Check context remaining; run `/compact` if below 50%
-7. Message existing implementers with next wave's tasks + context from previous waves. **If QA wrote tests:** include the test file paths so implementers run them RED before implementing.
+5. Aggregate wave evidence: `forge-evidence add wave-<N> command "<merged test results>"` and `forge-evidence add wave-<N> diff "<merge commit SHA + stat>"`
+6. Update `forge-state set plan.current_wave <N+1>`
+7. Check context remaining; run `/compact` if below 50%
+8. Message existing implementers with next wave's tasks + context from previous waves. **If QA wrote tests:** include the test file paths so implementers run them RED before implementing.
 
 ### Phase 3: Completion
 
 1. All waves done, all tasks reviewed
-2. Dispatch final cross-cutting code reviewer (`superpowers:code-reviewer`) for entire implementation
+2. Dispatch final cross-cutting code reviewer (`forge:code-reviewer`) for entire implementation
 3. Shutdown all implementers via `SendMessage` with `type: "shutdown_request"`
 4. `TeamDelete` after all members confirm shutdown
-5. Use `superpowers:finishing-a-development-branch`
+5. Use `forge:finishing-a-development-branch`
 
 ### Cross-Task Dependency Check
 
@@ -360,17 +367,18 @@ Before marking the plan complete, review all completed tasks together for cross-
 ## Integration
 
 **Before this skill:**
-- **superpowers:using-git-worktrees** — Isolated workspace before starting; `worktree.main.path` written to state.yml
-- **superpowers:composing-teams** — Assembles team roster with agent definitions
-- **superpowers:writing-plans** — Creates the plan this skill executes; `plan.path` in state.yml
+- **forge:using-git-worktrees** — Isolated workspace before starting; `forge-state set worktree.main.path`
+- **forge:composing-teams** — Assembles team roster with agent definitions
+- **forge:writing-plans** — Creates the plan this skill executes; `forge-state set plan.path`
 
 **During this skill:**
-- **superpowers:test-driven-development** — Implementers follow TDD (solo or pipelined)
-- **superpowers:requesting-code-review** — Review methodology for quality reviewers
-- **superpowers:verification-before-completion** — Evidence format for completion reports
+- **forge:test-driven-development** — Implementers follow TDD (solo or pipelined)
+- **forge:requesting-code-review** — Review methodology for quality reviewers
+- **forge:verification-before-completion** — Evidence format for completion reports
+- **forge:validating-wave-compliance** — Cross-task compliance check between waves (elevated/critical tiers)
 
 **After this skill:**
-- **superpowers:finishing-a-development-branch** — Merge/PR/cleanup decision
+- **forge:finishing-a-development-branch** — Merge/PR/cleanup decision
 
-**Reads from state.yml:** `plan.path`, `plan.completed_tasks`, `plan.current_wave`, `worktree.main.path`, `team.roster`
-**Writes to state.yml:** `plan.completed_tasks`, `plan.current_wave`, `worktree.implementers.*`, `phase: executing`
+**Reads from `.forge/` state:** `plan.path`, `plan.completed_tasks`, `plan.current_wave`, `worktree.main.path`, `team.roster`
+**Writes to `.forge/` state:** `plan.completed_tasks`, `plan.current_wave`, `worktree.implementers.*`, `phase: executing`
