@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forge Workflow Dashboard</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    margin: 0;
+    padding: 1.5rem;
+    min-height: 100vh;
+  }
+  h1 { font-size: 1.4rem; font-weight: 700; color: #f7fafc; margin: 0 0 0.25rem; }
+  .subtitle { font-size: 0.85rem; color: #718096; margin: 0 0 2rem; }
+  .section { margin-bottom: 2rem; }
+  .section-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #4a5568;
+    margin: 0 0 1rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid #1a1d27;
+  }
+
+  /* ---- Pipeline ---- */
+  .pipeline {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+  }
+  .phase { display: flex; align-items: center; flex-shrink: 0; }
+  .phase-box {
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .phase-box.done { background: #1a3a2a; border-color: #276749; color: #68d391; }
+  .phase-box.active {
+    background: #1a2a4a; border-color: #3182ce; color: #90cdf4;
+    box-shadow: 0 0 0 2px rgba(49,130,206,0.3);
+  }
+  .phase-box.pending { background: #1a1d27; border-color: #2d3748; color: #4a5568; }
+  .phase-icon { margin-right: 0.35rem; }
+  .phase-arrow { color: #2d3748; padding: 0 0.3rem; font-size: 0.8rem; user-select: none; }
+
+  /* ---- Stats ---- */
+  .stats-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .stat-card {
+    background: #1a1d27;
+    border: 1px solid #2d3748;
+    border-radius: 8px;
+    padding: 0.75rem 1.25rem;
+    min-width: 120px;
+  }
+  .stat-label { font-size: 0.7rem; color: #718096; text-transform: uppercase; letter-spacing: 0.06em; }
+  .stat-value { font-size: 1.5rem; font-weight: 700; color: #e2e8f0; margin-top: 0.1rem; }
+  .stat-value.tier-minimal  { color: #68d391; }
+  .stat-value.tier-standard { color: #90cdf4; }
+  .stat-value.tier-elevated { color: #f6ad55; }
+  .stat-value.tier-critical { color: #fc8181; }
+
+  /* ---- Evidence ---- */
+  .evidence-group { margin-bottom: 1rem; }
+  .evidence-label { font-size: 0.72rem; color: #718096; margin-bottom: 0.4rem; font-weight: 500; }
+  .evidence-badges { display: flex; flex-wrap: wrap; gap: 0.4rem; min-height: 1.5rem; }
+  .badge {
+    font-size: 0.72rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+  .badge.collected { background: #1a3a2a; color: #68d391; border: 1px solid #276749; }
+  .badge.missing   { background: #3a1a1a; color: #fc8181; border: 1px solid #742a2a; }
+  .badge.ok        { background: #1a3a2a; color: #68d391; border: 1px solid #276749; }
+
+  /* ---- Task table ---- */
+  table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  th {
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    color: #4a5568;
+    font-weight: 600;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid #2d3748;
+  }
+  td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #1a1d27; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #1a1d27; }
+  .status-dot {
+    display: inline-block; width: 7px; height: 7px;
+    border-radius: 50%; margin-right: 0.4rem; vertical-align: middle;
+  }
+  .s-complete .status-dot { background: #68d391; }
+  .s-active   .status-dot { background: #90cdf4; }
+  .s-pending  .status-dot { background: #4a5568; }
+  .ok-text    { color: #68d391; }
+  .miss-text  { color: #fc8181; }
+  .empty-state { color: #4a5568; font-style: italic; font-size: 0.85rem; }
+
+  /* ---- Connection bar ---- */
+  .conn-bar {
+    position: fixed; top: 0; left: 0; right: 0;
+    padding: 0.35rem 1rem;
+    font-size: 0.72rem; font-weight: 500;
+    text-align: center; z-index: 100;
+    transition: background 0.3s, color 0.3s;
+  }
+  .conn-bar.connected    { background: #276749; color: #c6f6d5; }
+  .conn-bar.disconnected { background: #742a2a; color: #fed7d7; }
+  .conn-bar.reconnecting { background: #744210; color: #fefcbf; }
+  body.has-conn-bar { padding-top: 2.5rem; }
+</style>
+</head>
+<body>
+<div class="conn-bar disconnected" id="conn-bar">Connecting...</div>
+
+<h1>Forge Workflow Dashboard</h1>
+<p class="subtitle" id="subtitle">Watching .forge/local/ for changes</p>
+
+<div class="section">
+  <div class="section-title">Pipeline</div>
+  <div class="pipeline" id="pipeline">
+    <span class="empty-state">Waiting for state...</span>
+  </div>
+</div>
+
+<div class="stats-row" id="stats-row" style="display:none">
+  <div class="stat-card">
+    <div class="stat-label">Phase</div>
+    <div class="stat-value" id="stat-phase">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Risk Tier</div>
+    <div class="stat-value" id="stat-tier">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Tasks Total</div>
+    <div class="stat-value" id="stat-total">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Complete</div>
+    <div class="stat-value" id="stat-complete">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Active</div>
+    <div class="stat-value" id="stat-active">—</div>
+  </div>
+</div>
+
+<div class="section" id="evidence-section" style="display:none">
+  <div class="section-title">Evidence (global)</div>
+  <div class="evidence-group">
+    <div class="evidence-label">Collected</div>
+    <div class="evidence-badges" id="ev-collected"></div>
+  </div>
+  <div class="evidence-group">
+    <div class="evidence-label">Missing (required for tier)</div>
+    <div class="evidence-badges" id="ev-missing"></div>
+  </div>
+</div>
+
+<div class="section" id="tasks-section" style="display:none">
+  <div class="section-title">Tasks — Evidence Status</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Task</th>
+        <th>Status</th>
+        <th>Tier</th>
+        <th>Collected</th>
+        <th>Missing</th>
+      </tr>
+    </thead>
+    <tbody id="task-tbody">
+      <tr><td colspan="5" class="empty-state">No tasks found in state</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+(function() {
+  var WS_HOST = '__WS_HOST__';
+  var WS_PORT = __WS_PORT__;
+  var PHASES   = ['design','setup','planning','executing','verification','review','completion'];
+
+  var connBar = document.getElementById('conn-bar');
+  var ws = null;
+  var retryDelay = 1000;
+
+  function connect() {
+    if (ws) { try { ws.close(); } catch(e) {} }
+    ws = new WebSocket('ws://' + WS_HOST + ':' + WS_PORT + '/ws');
+
+    ws.onopen = function() {
+      document.body.classList.add('has-conn-bar');
+      connBar.className = 'conn-bar connected';
+      connBar.textContent = 'Connected — live updates active';
+      retryDelay = 1000;
+    };
+
+    ws.onmessage = function(ev) {
+      var msg;
+      try { msg = JSON.parse(ev.data); } catch(e) { return; }
+      if (msg.type === 'state-update') renderState(msg);
+    };
+
+    ws.onclose = function() {
+      connBar.className = 'conn-bar reconnecting';
+      connBar.textContent = 'Disconnected — reconnecting in ' + Math.round(retryDelay/1000) + 's...';
+      setTimeout(function() {
+        retryDelay = Math.min(retryDelay * 2, 30000);
+        connect();
+      }, retryDelay);
+    };
+
+    ws.onerror = function() { ws.close(); };
+  }
+
+  function renderState(s) {
+    renderPipeline(s.phase, s.pipeline || PHASES);
+    renderStats(s);
+    renderEvidence(s.evidence || {});
+    renderTasks(s.task_evidence || {});
+    document.getElementById('subtitle').textContent =
+      'Last updated: ' + new Date().toLocaleTimeString();
+  }
+
+  function renderPipeline(current, phases) {
+    var el = document.getElementById('pipeline');
+    el.innerHTML = '';
+    var doneIdx = phases.indexOf(current);
+    phases.forEach(function(ph, i) {
+      if (i > 0) {
+        var a = document.createElement('span');
+        a.className = 'phase-arrow';
+        a.textContent = '\u2192';
+        el.appendChild(a);
+      }
+      var box = document.createElement('div');
+      box.className = 'phase-box ' + (i < doneIdx ? 'done' : i === doneIdx ? 'active' : 'pending');
+      var icon = i < doneIdx ? '\u2713' : i === doneIdx ? '\u25cf' : '\u25cb';
+      box.innerHTML = '<span class="phase-icon">' + icon + '</span>' + esc(ph);
+      var wrap = document.createElement('div');
+      wrap.className = 'phase';
+      wrap.appendChild(box);
+      el.appendChild(wrap);
+    });
+  }
+
+  function renderStats(s) {
+    var row = document.getElementById('stats-row');
+    row.style.display = '';
+    document.getElementById('stat-phase').textContent = s.phase || '—';
+    var tierEl = document.getElementById('stat-tier');
+    tierEl.textContent = s.risk_tier || '—';
+    tierEl.className = 'stat-value tier-' + (s.risk_tier || '');
+    var t = s.tasks || {};
+    document.getElementById('stat-total').textContent    = t.total    !== undefined ? t.total    : '—';
+    document.getElementById('stat-complete').textContent = t.complete !== undefined ? t.complete : '—';
+    document.getElementById('stat-active').textContent   = t.active   !== undefined ? t.active   : '—';
+  }
+
+  function renderEvidence(evidence) {
+    document.getElementById('evidence-section').style.display = '';
+    var cEl = document.getElementById('ev-collected');
+    var mEl = document.getElementById('ev-missing');
+    cEl.innerHTML = '';
+    mEl.innerHTML = '';
+
+    var collected = evidence.collected || [];
+    var missing   = evidence.missing   || [];
+
+    if (collected.length) {
+      collected.forEach(function(a) { cEl.appendChild(badge(a, 'collected')); });
+    } else {
+      cEl.innerHTML = '<span class="empty-state">None yet</span>';
+    }
+
+    if (missing.length) {
+      missing.forEach(function(a) { mEl.appendChild(badge(a, 'missing')); });
+    } else {
+      mEl.appendChild(badge('All required evidence collected', 'ok'));
+    }
+  }
+
+  function renderTasks(taskEvidence) {
+    var section = document.getElementById('tasks-section');
+    var tbody   = document.getElementById('task-tbody');
+    var entries = Object.keys(taskEvidence);
+
+    if (!entries.length) { section.style.display = 'none'; return; }
+    section.style.display = '';
+    tbody.innerHTML = '';
+
+    entries.forEach(function(id) {
+      var d = taskEvidence[id];
+      var st = d.status || 'pending';
+      var sCls = st === 'complete' || st === 'completed' ? 's-complete'
+               : st === 'in_progress' || st === 'active' ? 's-active'
+               : 's-pending';
+      var missing = d.missing || [];
+      var collected = (d.collected || []).join(', ') || '—';
+      var tr = document.createElement('tr');
+      tr.className = sCls;
+      tr.innerHTML =
+        '<td>' + esc(id) + '</td>' +
+        '<td><span class="status-dot"></span>' + esc(st) + '</td>' +
+        '<td>' + esc(d.tier || '—') + '</td>' +
+        '<td class="ok-text">' + esc(collected) + '</td>' +
+        '<td class="' + (missing.length ? 'miss-text' : 'ok-text') + '">' +
+          (missing.length ? esc(missing.join(', ')) : 'complete') + '</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  function badge(text, cls) {
+    var el = document.createElement('span');
+    el.className = 'badge ' + cls;
+    el.textContent = text;
+    return el;
+  }
+
+  function esc(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;');
+  }
+
+  connect();
+})();
+</script>
+</body>
+</html>
