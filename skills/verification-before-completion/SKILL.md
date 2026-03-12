@@ -13,6 +13,8 @@ Claiming work is complete without verification is dishonesty, not efficiency.
 
 **Violating the letter of this rule is violating the spirit of this rule.**
 
+This skill is invoked by execution skills at task completion and by hooks. NOT optional.
+
 ## The Iron Law
 
 ```
@@ -60,6 +62,41 @@ All verification claims must include one or more of these evidence types. Report
 
 **Re-review loop bound:** After 3 rejection cycles on the same claim, escalate to the user with the full rejection history rather than looping again.
 
+## Risk-Tier Evidence Matrix
+
+Evidence requirements scale with the risk tier of the current task. Read the active tier via `forge-state get risk.tier` (defaults to **standard** if unset).
+
+| Evidence | Minimal | Standard | Elevated | Critical |
+|----------|---------|----------|----------|----------|
+| Tests pass (command) | Required | Required | Required | Required |
+| Build clean (command) | - | Required | Required | Required |
+| Acceptance criteria (citation) | - | - | Required | Required |
+| Rollback plan tested (command) | - | - | - | Required |
+| Security review (citation) | - | - | - | Required |
+| RED/GREEN TDD evidence | - | - | Required | Required |
+
+**Minimal** tier: tests pass via command evidence only. Suitable for docs, config, trivial fixes.
+
+**Standard** tier: tests pass + build clean. Default for most development work.
+
+**Elevated** tier: tests + build + acceptance criteria citation + RED/GREEN TDD evidence. For cross-cutting changes, API modifications, schema migrations.
+
+**Critical** tier: all of the above + rollback plan tested via command + security review citation. For auth, payments, data integrity, production deployments.
+
+When the tier is unknown, apply **standard**. When in doubt, escalate up, never down.
+
+### Dynamic Evidence Checklist
+
+Before completion, generate the required checklist from the current risk tier:
+
+```
+1. Read risk tier:  forge-state get risk.tier
+2. Build checklist from the matrix above for that tier
+3. Collect evidence for EVERY required row
+4. Record result: forge-state set verification.result pass|fail
+5. Record evidence: forge-evidence add verification <artifact>
+```
+
 ## Common Failures
 
 | Claim | Required evidence | Not sufficient |
@@ -88,11 +125,11 @@ All verification claims must include one or more of these evidence types. Report
 | Excuse | Reality |
 |--------|---------|
 | "Should work now" | RUN the verification |
-| "I'm confident" | Confidence ≠ evidence |
+| "I'm confident" | Confidence != evidence |
 | "Just this once" | No exceptions |
-| "Linter passed" | Linter ≠ compiler |
+| "Linter passed" | Linter != compiler |
 | "Agent said success" | Verify independently |
-| "I'm tired" | Exhaustion ≠ excuse |
+| "I'm tired" | Exhaustion != excuse |
 | "Partial check is enough" | Partial proves nothing |
 | "Different words so rule doesn't apply" | Spirit over letter |
 
@@ -100,54 +137,44 @@ All verification claims must include one or more of these evidence types. Report
 
 **Tests:**
 ```
-✅ [Run test command] [See: 34/34 pass] "All tests pass"
-❌ "Should pass now" / "Looks correct"
+OK  [Run test command] [See: 34/34 pass] "All tests pass"
+BAD "Should pass now" / "Looks correct"
 ```
 
 **Regression tests (TDD Red-Green):**
 ```
-✅ Write → Run (pass) → Revert fix → Run (MUST FAIL) → Restore → Run (pass)
-❌ "I've written a regression test" (without red-green verification)
+OK  Write -> Run (pass) -> Revert fix -> Run (MUST FAIL) -> Restore -> Run (pass)
+BAD "I've written a regression test" (without red-green verification)
 ```
 
 **Build:**
 ```
-✅ [Run build] [See: exit 0] "Build passes"
-❌ "Linter passed" (linter doesn't check compilation)
+OK  [Run build] [See: exit 0] "Build passes"
+BAD "Linter passed" (linter doesn't check compilation)
 ```
 
 **Requirements:**
 ```
-✅ Re-read plan → Create checklist → Verify each → Report gaps or completion
-❌ "Tests pass, phase complete"
+OK  Re-read plan -> Create checklist -> Verify each -> Report gaps or completion
+BAD "Tests pass, phase complete"
 ```
 
 **Agent delegation:**
 ```
-✅ Agent reports success → Check git diff --stat → Verify commit SHA → Run tests → Report actual state
-   Evidence: Diff (VCS changes) + Command (test output)
-❌ Trust agent report without diff or test evidence
+OK  Agent reports success -> Check git diff --stat -> Verify commit SHA -> Run tests -> Report actual state
+    Evidence: Diff (VCS changes) + Command (test output)
+BAD Trust agent report without diff or test evidence
 ```
-
-## Why This Matters
-
-From observed failure patterns:
-- Users have reported "I don't believe you" - trust broken
-- Undefined functions shipped - would crash
-- Missing requirements shipped - incomplete features
-- Time wasted on false completion → redirect → rework
-- Violates: "Honesty is a core value. If you lie, you'll be replaced."
 
 ## State Integration
 
-Verification results may optionally be recorded in `.superpowers/state.yml` at key milestones:
+Verification results are recorded in `.forge/state.yml` at key milestones via the forge-state CLI:
 
-```yaml
-verification:
-  last_run: 2026-03-01T14:22:00Z
-  task: 3
-  result: pass  # pass | fail
-  evidence_type: command
+```
+forge-state set verification.result pass
+forge-state set verification.task 3
+forge-state set verification.evidence_type command
+forge-evidence add verification <artifact>
 ```
 
 This allows session-resume to know the last verified state without re-running all checks.
@@ -179,11 +206,12 @@ This is non-negotiable.
 ## Integration
 
 **Called by:**
-- **subagent-driven-development** — REQUIRED after each task completion
-- **agent-team-driven-development** — REQUIRED for implementer completion reports
-- **executing-plans** — REQUIRED before marking any task done
-- **requesting-code-review** — reviewer uses evidence format for findings
+- **forge:subagent-driven-development** — REQUIRED after each task completion
+- **forge:agent-team-driven-development** — REQUIRED for implementer completion reports
+- **forge:executing-plans** — REQUIRED before marking any task done
+- **forge:finishing-a-development-branch** — final verification before merge/PR
+- **hooks** — pre-commit and pre-push verification gates
 
 **Pairs with:**
-- **requesting-code-review** — reviewer uses the canonical evidence format defined here
-- **finishing-a-development-branch** — final verification before merge/PR
+- **forge:requesting-code-review** — reviewer uses the canonical evidence format defined here
+- **forge:finishing-a-development-branch** — final verification before merge/PR
