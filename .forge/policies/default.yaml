@@ -1,0 +1,34 @@
+# .forge/policies/default.yaml — Default risk classification policy
+#
+# This policy maps file glob patterns to risk tiers.
+# Forge uses these rules to determine what verification is required
+# before changes in a given area can be completed.
+#
+# Tiers (in ascending order of required evidence):
+#   minimal   — low-risk areas; spot-check or no gate required
+#   standard  — normal work; standard test + review gate
+#   elevated  — sensitive areas; require explicit artifacts (e.g., test run, review)
+#   critical  — highest risk; require sign-off + full artifact set
+#
+# Rules are evaluated top-to-bottom; first match wins.
+# 'match' is a list of glob patterns (standard glob syntax, e.g., "auth/**").
+# 'require' (optional) lists artifact names that must be present before completion.
+
+rules:
+  - match: ["db/migrations/**"]
+    tier: critical
+    require: ["test-run", "migration-review"]
+
+  - match: ["auth/**", "src/auth/**"]
+    tier: elevated
+    require: ["test-run", "security-review"]
+
+  - match: ["src/**", "lib/**", "app/**"]
+    tier: standard
+    require: ["test-run"]
+
+  - match: ["docs/**", "*.md"]
+    tier: minimal
+
+  - match: ["**"]
+    tier: standard

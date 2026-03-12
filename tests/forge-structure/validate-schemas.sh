@@ -43,7 +43,7 @@ yaml_has_key() {
     local file="$1"
     local key="$2"
     if command -v python3 &>/dev/null; then
-        python3 -c "import yaml; d=yaml.safe_load(open('$file')); sys.exit(0 if '$key' in d else 1)" 2>/dev/null
+        python3 -c "import yaml, sys; d=yaml.safe_load(open('$file')); sys.exit(0 if '$key' in d else 1)" 2>/dev/null
         return $?
     else
         grep -q "^$key:" "$file" 2>/dev/null

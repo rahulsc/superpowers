@@ -1,0 +1,10 @@
+# .forge/local/.gitignore
+# Everything in .forge/local/ is machine-specific state and must NOT be committed.
+# This directory holds the forge database, state snapshots, and per-session memory.
+
+# Ignore all files and subdirectories in local/
+*
+*.db
+*.sqlite
+*.json
+!.gitignore

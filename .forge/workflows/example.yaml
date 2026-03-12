@@ -1,0 +1,37 @@
+# .forge/workflows/example.yaml — Example workflow definition
+#
+# Workflows describe multi-step agent sequences for common engineering tasks.
+# NOTE: The workflow engine is post-v0. This file is illustrative schema only.
+#
+# A workflow has:
+#   name     — human-readable label
+#   trigger  — what invokes the workflow (manual | hook | schedule)
+#   steps    — ordered list of steps; each step has a skill and optional params
+#   on_fail  — what to do if a step fails (stop | continue | rollback)
+
+name: feature-branch-development
+trigger: manual
+
+steps:
+  - id: brainstorm
+    skill: brainstorming
+    params:
+      topic: "{{ input.feature }}"
+
+  - id: plan
+    skill: writing-plans
+    depends_on: [brainstorm]
+
+  - id: implement
+    skill: subagent-driven-development
+    depends_on: [plan]
+
+  - id: verify
+    skill: verification-before-completion
+    depends_on: [implement]
+
+  - id: review
+    skill: code-review
+    depends_on: [verify]
+
+on_fail: stop

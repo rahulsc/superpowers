@@ -1,0 +1,29 @@
+# .forge/project.yaml — Forge project configuration
+# This file is checked in. Edit it to configure Forge for this project.
+
+# Project name (used in reports, UI, and log messages)
+name: ""
+
+# Project version (optional; used by packs and adapters for compatibility checks)
+version: ""
+
+# Tech stack — detected automatically on first run, or declare explicitly.
+# Examples: ["node", "typescript", "react"], ["python", "fastapi", "postgres"]
+stack: []
+
+# Commands used by Forge to run tests, builds, and lint checks.
+commands:
+  test: ""    # Test runner command (e.g., "npm test", "pytest", "go test ./...")
+  build: ""   # Build command (optional; e.g., "npm run build", "make")
+  lint: ""    # Lint command (optional; e.g., "npm run lint", "ruff check .")
+
+# Repo traits — detected automatically, or declare explicitly.
+# Affects routing, risk classification, and team configuration.
+# Examples: ["monorepo", "ci-github-actions", "ci-circleci", "docker", "kubernetes"]
+repo_traits: []
+
+# Storage backend for local Forge state (forge.sqlite or state.json).
+# Auto-detected: sqlite if sqlite3 is available, otherwise json.
+# Override here if you need to force a specific backend.
+# Valid values: sqlite | json
+storage: sqlite
