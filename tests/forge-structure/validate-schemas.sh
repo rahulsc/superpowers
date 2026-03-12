@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # Test: .forge/ YAML files parse correctly and have required fields
-# RED phase: these tests FAIL until Task 1 is implemented
 
 set -uo pipefail
 
@@ -16,7 +15,10 @@ FORGE_ROOT="/home/rahulsc/Projects/Superpowers/.claude/worktrees/forge-v0/.forge
 yaml_valid() {
     local file="$1"
     if command -v python3 &>/dev/null; then
-        python3 -c "import yaml, sys; yaml.safe_load(open('$file'))" 2>/dev/null
+        python3 - "$file" 2>/dev/null <<'PYEOF'
+import yaml, sys
+yaml.safe_load(open(sys.argv[1]))
+PYEOF
     elif command -v yq &>/dev/null; then
         yq e '.' "$file" > /dev/null 2>&1
     else
@@ -113,10 +115,10 @@ else
 
     # Each rule must have match and tier; validate via python if available
     if command -v python3 &>/dev/null; then
-        RULES_VALID=$(python3 - <<'PYEOF'
+        RULES_VALID=$(python3 - "$POLICY_YAML" <<'PYEOF'
 import yaml, sys
 try:
-    d = yaml.safe_load(open("/home/rahulsc/Projects/Superpowers/.claude/worktrees/forge-v0/.forge/policies/default.yaml"))
+    d = yaml.safe_load(open(sys.argv[1]))
     rules = d.get("rules", [])
     if not isinstance(rules, list):
         print("FAIL: rules is not a list")

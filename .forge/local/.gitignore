@@ -4,7 +4,4 @@
 
 # Ignore all files and subdirectories in local/
 *
-*.db
-*.sqlite
-*.json
 !.gitignore

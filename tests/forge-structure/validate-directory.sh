@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # Test: .forge/ directory structure exists with required files
-# RED phase: these tests FAIL until Task 1 is implemented
 
 set -uo pipefail
 
