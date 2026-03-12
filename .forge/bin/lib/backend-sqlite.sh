@@ -217,8 +217,9 @@ PYEOF
     esc_type=$(printf '%s' "$type" | sed "s/'/''/g")
     if [ -n "$similar" ]; then
         local esc_similar
-        esc_similar=$(printf '%s' "$similar" | sed "s/'/''/g")
-        sqlite3 "$db" "SELECT content FROM memory WHERE type = '${esc_type}' AND content LIKE '%${esc_similar}%' ORDER BY id DESC;"
+        # Escape single quotes for SQL, then % and _ for LIKE wildcards
+        esc_similar=$(printf '%s' "$similar" | sed "s/'/''/g; s/%/\\%/g; s/_/\\_/g")
+        sqlite3 "$db" "SELECT content FROM memory WHERE type = '${esc_type}' AND content LIKE '%${esc_similar}%' ESCAPE '\\' ORDER BY id DESC;"
     else
         sqlite3 "$db" "SELECT content FROM memory WHERE type = '${esc_type}' ORDER BY id DESC;"
     fi
