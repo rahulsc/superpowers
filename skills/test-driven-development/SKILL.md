@@ -15,18 +15,26 @@ Write the test first. Watch it fail. Write minimal code to pass.
 
 ## When to Use
 
-**Always:**
-- New features
-- Bug fixes
-- Refactoring
-- Behavior changes
+TDD has two operating modes that determine enforcement level.
 
-**Exceptions (ask the user):**
-- Throwaway prototypes
-- Generated code
-- Configuration files
+### Standalone Mode (invoked directly)
 
-Thinking "skip TDD just this once"? Stop. That's rationalization.
+TDD is **always enforced** when invoked directly. The Iron Law applies regardless of risk tier.
+
+### Embedded Mode (invoked by SDD/ATDD as part of a task)
+
+Enforcement scales with the project's risk tier (read via `forge-state get risk.tier` from `.forge/state.yml`):
+
+| Risk Tier | TDD Enforcement | Iron Law | Evidence |
+|-----------|----------------|----------|----------|
+| **Minimal** | Optional — agent MAY skip TDD ceremony | No | Test evidence still required by verification |
+| **Standard** | Recommended, not enforced | No | Test evidence required |
+| **Elevated** | Mandatory — TDD required for all changes | Yes | RED/GREEN evidence required |
+| **Critical** | Mandatory — TDD required + edge case coverage | Yes | RED/GREEN evidence + edge cases |
+
+**Key nuance:** Plan-level test expectations (what to test) are mandatory at ALL tiers. TDD enforcement (write test first, watch it fail) is what scales by tier.
+
+**Exceptions (ask the user):** Throwaway prototypes, generated code, configuration files.
 
 ## The Iron Law
 
@@ -231,53 +239,15 @@ Next failing test for next feature.
 
 ## Why Order Matters
 
-**"I'll write tests after to verify it works"**
+**"I'll write tests after"** — Tests written after pass immediately. Passing immediately proves nothing: might test wrong thing, miss edge cases, test implementation not behavior. Test-first forces you to see the test fail, proving it tests something.
 
-Tests written after code pass immediately. Passing immediately proves nothing:
-- Might test wrong thing
-- Might test implementation, not behavior
-- Might miss edge cases you forgot
-- You never saw it catch the bug
+**"Already manually tested"** — Manual testing is ad-hoc: no record, can't re-run, easy to forget cases. Automated tests are systematic and repeatable.
 
-Test-first forces you to see the test fail, proving it actually tests something.
+**"Deleting X hours is wasteful"** — Sunk cost fallacy. Under 1 hour: delete. Longer: consult the user. Keeping untested code is technical debt.
 
-**"I already manually tested all the edge cases"**
+**"TDD is dogmatic"** — TDD IS pragmatic: finds bugs before commit, prevents regressions, documents behavior, enables refactoring. "Pragmatic" shortcuts = debugging in production.
 
-Manual testing is ad-hoc. You think you tested everything but:
-- No record of what you tested
-- Can't re-run when code changes
-- Easy to forget cases under pressure
-- "It worked when I tried it" ≠ comprehensive
-
-Automated tests are systematic. They run the same way every time.
-
-**"Deleting X hours of work is wasteful"**
-
-Sunk cost fallacy. The time is already gone. Your choice now:
-- Delete and rewrite with TDD (X more hours, high confidence)
-- Keep it and add tests after (30 min, low confidence, likely bugs)
-
-The "waste" is keeping code you can't trust. Working code without real tests is technical debt.
-
-**"TDD is dogmatic, being pragmatic means adapting"**
-
-TDD IS pragmatic:
-- Finds bugs before commit (faster than debugging after)
-- Prevents regressions (tests catch breaks immediately)
-- Documents behavior (tests show how to use code)
-- Enables refactoring (change freely, tests catch breaks)
-
-"Pragmatic" shortcuts = debugging in production = slower.
-
-**"Tests after achieve the same goals - it's spirit not ritual"**
-
-No. Tests-after answer "What does this do?" Tests-first answer "What should this do?"
-
-Tests-after are biased by your implementation. You test what you built, not what's required. You verify remembered edge cases, not discovered ones.
-
-Tests-first force edge case discovery before implementing. Tests-after verify you remembered everything (you didn't).
-
-30 minutes of tests after ≠ TDD. You get coverage, lose proof tests work.
+**"Tests after achieve the same goals"** — Tests-after answer "what does this do?" Tests-first answer "what should this do?" Tests-after are biased by implementation. You test what you built, not what's required.
 
 ## Common Rationalizations
 
@@ -294,6 +264,7 @@ Tests-first force edge case discovery before implementing. Tests-after verify yo
 | "TDD will slow me down" | TDD faster than debugging. Pragmatic = test-first. |
 | "Manual test faster" | Manual doesn't prove edge cases. You'll re-test every change. |
 | "Existing code has no tests" | You're improving it. Add tests for existing code. |
+| "I'm at minimal tier so I can skip" | Valid in embedded mode only. Standalone always enforces. |
 
 ## Red Flags - STOP and Start Over
 
@@ -428,7 +399,7 @@ Pipelined TDD only activates when a QA agent is in the team roster.
 
 ## Plan-Level Test Expectations
 
-When plans are created with `superpowers:writing-plans`, each task must include test expectations. This makes TDD impossible to skip — implementers know exactly what to verify before starting.
+When plans are created with `forge:writing-plans`, each task must include test expectations. This makes TDD impossible to skip — implementers know exactly what to verify before starting.
 
 **Required per task (3-5 lines):**
 ```markdown
@@ -473,7 +444,7 @@ Output:
   Test Suites: 1 passed, 1 total
 ```
 
-Any completion report missing RED + GREEN evidence is rejected. See `superpowers:verification-before-completion` for the canonical evidence format used across all execution skills.
+Any completion report missing RED + GREEN evidence is rejected. Record evidence using `forge-evidence` and see `forge:verification-before-completion` for the canonical evidence format used across all execution skills.
 
 ## Testing Anti-Patterns
 
@@ -498,7 +469,7 @@ No exceptions without the user's permission.
 - Implementer agents follow TDD for each task
 
 **Pairs with:**
-- **superpowers:verification-before-completion** — Evidence format for completion claims
-- **superpowers:writing-plans** — Plan-level test expectations define what to test
+- **forge:verification-before-completion** — Evidence format for completion claims
+- **forge:writing-plans** — Plan-level test expectations define what to test
 
 **Modes:** Solo TDD (each implementer writes own tests) or Pipelined TDD (QA agent writes tests one wave ahead)
