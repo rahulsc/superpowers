@@ -357,7 +357,7 @@ TDD works in two configurations depending on whether you are working solo or in 
 
 | Mode | Who writes tests | Who implements | When |
 |---|---|---|---|
-| **Solo TDD** | Same agent | Same agent | Single-agent execution (executing-plans, subagent-driven) |
+| **Solo TDD** | Same agent | Same agent | Single-agent execution (subagent-driven-development) |
 | **Pipelined TDD** | QA agent (one wave ahead) | Implementer agents | Team execution (agent-team-driven) |
 
 ### Solo TDD
@@ -465,7 +465,7 @@ No exceptions without the user's permission.
 ## Integration
 
 **Used by:**
-- All implementation skills: subagent-driven, agent-team-driven, executing-plans
+- All implementation skills: subagent-driven-development, agent-team-driven-development
 - Implementer agents follow TDD for each task
 
 **Pairs with:**

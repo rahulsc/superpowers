@@ -350,7 +350,7 @@ After saving the plan and writing Forge state, offer execution choice:
 
 **Which approach?"**
 
-**Automatic fallback:** If the harness does not support subagents (no TaskTool available), execution falls back to `forge:executing-plans` which runs tasks in the current session with batch checkpoints.
+**Automatic fallback:** If the harness does not support subagents (no TaskTool available), execution falls back to `forge:subagent-driven-development` which runs tasks in the current session with batch checkpoints.
 
 After user chooses, run `forge-state set plan.executor "<skill>"`, then invoke the chosen execution skill.
 
@@ -363,7 +363,7 @@ After user chooses, run `forge-state set plan.executor "<skill>"`, then invoke t
 **After this skill:**
 - **forge:agent-team-driven-development** — Parallel execution (4+ tasks with independence)
 - **forge:subagent-driven-development** — Serial execution (same session)
-- **forge:executing-plans** — Fallback for no-subagent platforms
+- **forge:subagent-driven-development** — Fallback for no-subagent platforms
 
 **Reads from Forge state:** `design.approved`, `design.path`, `worktree.main.path`, `team.roster`
 **Writes to Forge state:** `plan.path`, `plan.status`, `plan.executor`, `plan.total_tasks`, `phase`

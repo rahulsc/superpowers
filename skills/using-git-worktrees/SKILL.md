@@ -245,7 +245,7 @@ Next wave's implementers branch from the merged result.
 **Called by:**
 - **forge:brainstorming** (after design approval) — REQUIRED before implementation
 - **forge:subagent-driven-development** — REQUIRED before executing any tasks
-- **forge:executing-plans** — REQUIRED before executing any tasks
+- **forge:subagent-driven-development** — REQUIRED before executing any tasks
 - Any skill needing isolated workspace
 
 **Pairs with:**

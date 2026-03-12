@@ -208,7 +208,7 @@ This is non-negotiable.
 **Called by:**
 - **forge:subagent-driven-development** — REQUIRED after each task completion
 - **forge:agent-team-driven-development** — REQUIRED for implementer completion reports
-- **forge:executing-plans** — REQUIRED before marking any task done
+- **forge:subagent-driven-development** — REQUIRED before marking any task done
 - **forge:finishing-a-development-branch** — final verification before merge/PR
 - **hooks** — pre-commit and pre-push verification gates
 
