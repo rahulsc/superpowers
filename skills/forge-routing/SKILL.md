@@ -90,6 +90,8 @@ All 19 Forge skills, grouped by phase:
 
 **Finishing**
 - `forge:finishing-a-development-branch` — merge, tag, and close out a branch
+
+**Diagnosis**
 - `forge:systematic-debugging` — structured root-cause analysis for bugs
 
 **Team Composition**
