@@ -11,7 +11,7 @@
 #   required_artifacts=<comma-separated list>
 #   matched_rules=<description of matched rules>
 
-set -uo pipefail
+set -euo pipefail
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -246,7 +246,7 @@ PYEOF
                 tier="${BASH_REMATCH[1]}"
             elif [[ "$line" =~ ^[[:space:]]*-[[:space:]]*match:[[:space:]]*\"?([^\"]*)\"? ]]; then
                 pattern="${BASH_REMATCH[1]}"
-                echo -e "RULE\t${tier}\t\t${pattern}\t${policy_name}"
+                printf 'RULE\t%s\t\t%s\t%s\n' "${tier}" "${pattern}" "${policy_name}"
             fi
         done < "$file"
     fi
@@ -384,14 +384,23 @@ for filepath in "${FILES[@]:-}"; do
                 FILE_TIER="$rule_tier"
                 FILE_ARTIFACTS="$rule_require"
             else
-                # Take highest tier
                 local_old_rank=$(tier_rank "$FILE_TIER")
                 local_new_rank=$(tier_rank "$rule_tier")
                 if [ "$local_new_rank" -gt "$local_old_rank" ]; then
+                    # Higher tier wins — replace tier and artifacts
                     FILE_TIER="$rule_tier"
-                    # Merge artifacts: use the higher-tier rule's require
                     FILE_ARTIFACTS="$rule_require"
+                elif [ "$local_new_rank" -eq "$local_old_rank" ]; then
+                    # Equal tier — union artifacts from both rules
+                    if [ -n "$rule_require" ]; then
+                        if [ -n "$FILE_ARTIFACTS" ]; then
+                            FILE_ARTIFACTS="${FILE_ARTIFACTS},${rule_require}"
+                        else
+                            FILE_ARTIFACTS="$rule_require"
+                        fi
+                    fi
                 fi
+                # Lower tier: discard (keep existing FILE_TIER/FILE_ARTIFACTS)
             fi
             FILE_MATCHED_RULES+=("${rule_pattern} (from ${rule_policy}.yaml)")
             SOURCE="policy"
@@ -404,13 +413,24 @@ for filepath in "${FILES[@]:-}"; do
             MATCHED_TIER="$FILE_TIER"
             MATCHED_ARTIFACTS="$FILE_ARTIFACTS"
         else
-            MATCHED_TIER=$(max_tier "$MATCHED_TIER" "$FILE_TIER")
-            # Use the matched artifacts from the winning tier
-            new_rank=$(tier_rank "$FILE_TIER")
+            # Capture ranks BEFORE max_tier updates MATCHED_TIER
             cur_rank=$(tier_rank "$MATCHED_TIER")
-            if [ "$new_rank" -ge "$cur_rank" ]; then
+            new_rank=$(tier_rank "$FILE_TIER")
+            MATCHED_TIER=$(max_tier "$MATCHED_TIER" "$FILE_TIER")
+            if [ "$new_rank" -gt "$cur_rank" ]; then
+                # New file's tier won — use its artifacts
                 MATCHED_ARTIFACTS="$FILE_ARTIFACTS"
+            elif [ "$new_rank" -eq "$cur_rank" ]; then
+                # Tie — union artifacts across files
+                if [ -n "$FILE_ARTIFACTS" ]; then
+                    if [ -n "$MATCHED_ARTIFACTS" ]; then
+                        MATCHED_ARTIFACTS="${MATCHED_ARTIFACTS},${FILE_ARTIFACTS}"
+                    else
+                        MATCHED_ARTIFACTS="$FILE_ARTIFACTS"
+                    fi
+                fi
             fi
+            # cur_rank > new_rank: existing winner's artifacts stay
         fi
         MATCHED_RULES_DESC+=("${FILE_MATCHED_RULES[@]}")
     fi
