@@ -1,6 +1,6 @@
 ---
 name: syncing-forge
-description: Use when project configuration or structure has changed and Forge adapters need regeneration — re-scans repo, refreshes CLAUDE.md/AGENTS.md, checks pack freshness
+description: Use when project configuration or structure has changed and Forge adapters need regeneration — after adding new files, changing directory structure, or installing packs
 ---
 
 # Syncing Forge

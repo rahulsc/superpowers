@@ -1,6 +1,6 @@
 ---
 name: finishing-a-development-branch
-description: Use when implementation is complete, all tests pass, and you need to decide how to integrate the work - guides completion of development work by presenting structured options for merge, PR, or cleanup
+description: Use when implementation is complete, all tests pass, and you need to decide how to integrate the work — choose between merge, PR creation, or branch cleanup
 ---
 
 # Finishing a Development Branch
@@ -275,7 +275,7 @@ done
 
 **Called by:**
 - **forge:subagent-driven-development** (Step 7) - After all tasks complete
-- **forge:executing-plans** (Step 5) - After all batches complete
+- **forge:subagent-driven-development** (Step 5) - After all batches complete
 - **forge:agent-team-driven-development** (Phase 3) - After all waves and reviews pass
 
 **Pairs with:**

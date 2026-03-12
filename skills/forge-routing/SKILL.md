@@ -1,6 +1,6 @@
 ---
 name: forge-routing
-description: Use when starting any task — establishes Forge identity, detects intent, classifies risk, and routes to the correct skill or workflow phase
+description: Use when starting any task — determines which Forge skill or workflow phase applies before taking any action
 ---
 
 <SUBAGENT-STOP>If you were dispatched as a subagent to execute a specific task, skip this skill and proceed with your assigned work.</SUBAGENT-STOP>

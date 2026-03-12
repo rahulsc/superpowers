@@ -1,6 +1,6 @@
 ---
 name: adopting-forge
-description: Use when setting up Forge in an existing repository — scans the repo, proposes .forge/ configuration, and applies after user confirmation
+description: Use when setting up Forge in an existing repository for the first time — installs .forge/ configuration, CLAUDE.md adapter, and hooks
 ---
 
 # Adopting Forge

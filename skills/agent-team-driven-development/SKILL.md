@@ -1,6 +1,6 @@
 ---
 name: agent-team-driven-development
-description: Use when executing implementation plans with 4+ independent tasks across specialist domains — orchestrates a team of specialist agents working in parallel waves with two-stage review
+description: Use when executing implementation plans with 4+ independent tasks across specialist domains that benefit from parallel execution by a persistent team of specialists
 ---
 
 # Agent Team-Driven Development
