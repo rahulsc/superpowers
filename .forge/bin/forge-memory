@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# forge-memory — memory storage CLI for Forge
+# Usage:
+#   forge-memory add <type> <content> [--project-dir DIR]
+#   forge-memory query <type> [--similar <text>] [--project-dir DIR]
+
+set -uo pipefail
+
+# --- Locate library directory ---
+FORGE_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FORGE_LIB_DIR="$FORGE_BIN_DIR/lib"
+
+# --- Argument parsing ---
+SUBCOMMAND=""
+ARGS=()
+PROJECT_DIR=""
+SIMILAR=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --project-dir)
+            shift
+            PROJECT_DIR="$1"
+            shift
+            ;;
+        --project-dir=*)
+            PROJECT_DIR="${1#--project-dir=}"
+            shift
+            ;;
+        --similar)
+            shift
+            SIMILAR="$1"
+            shift
+            ;;
+        --similar=*)
+            SIMILAR="${1#--similar=}"
+            shift
+            ;;
+        -*)
+            shift
+            ;;
+        *)
+            if [ -z "$SUBCOMMAND" ]; then
+                SUBCOMMAND="$1"
+            else
+                ARGS+=("$1")
+            fi
+            shift
+            ;;
+    esac
+done
+
+# --- Resolve project directory ---
+if [ -z "$PROJECT_DIR" ]; then
+    PROJECT_DIR="${FORGE_PROJECT_DIR:-$(pwd)}"
+fi
+
+# --- Resolve backend ---
+_detect_backend() {
+    local project_dir="$1"
+
+    if [ -n "${FORGE_BACKEND:-}" ]; then
+        printf '%s' "$FORGE_BACKEND"
+        return
+    fi
+
+    local project_yaml="$project_dir/.forge/project.yaml"
+    if [ -f "$project_yaml" ]; then
+        local storage_val
+        storage_val=$(grep -m1 '^storage:' "$project_yaml" 2>/dev/null | sed 's/^storage:[[:space:]]*//' | tr -d '"'"'" | tr -d '[:space:]')
+        if [ -n "$storage_val" ]; then
+            printf '%s' "$storage_val"
+            return
+        fi
+    fi
+
+    if command -v sqlite3 &>/dev/null; then
+        printf 'sqlite'
+        return
+    fi
+
+    printf 'json'
+}
+
+BACKEND=$(_detect_backend "$PROJECT_DIR")
+
+# --- Load backend library ---
+case "$BACKEND" in
+    sqlite)
+        source "$FORGE_LIB_DIR/backend-sqlite.sh"
+        ;;
+    json|*)
+        BACKEND=json
+        source "$FORGE_LIB_DIR/backend-json.sh"
+        ;;
+esac
+
+# --- Dispatch ---
+case "$SUBCOMMAND" in
+    add)
+        if [ "${#ARGS[@]}" -lt 2 ]; then
+            printf 'error: forge-memory add requires <type> <content>\n' >&2
+            exit 1
+        fi
+        TYPE="${ARGS[0]}"
+        CONTENT="${ARGS[1]}"
+        if [ "$BACKEND" = "sqlite" ]; then
+            sqlite_memory_add "$PROJECT_DIR" "$TYPE" "$CONTENT"
+        else
+            json_memory_add "$PROJECT_DIR" "$TYPE" "$CONTENT"
+        fi
+        ;;
+
+    query)
+        if [ "${#ARGS[@]}" -lt 1 ]; then
+            printf 'error: forge-memory query requires <type>\n' >&2
+            exit 1
+        fi
+        TYPE="${ARGS[0]}"
+        if [ "$BACKEND" = "sqlite" ]; then
+            sqlite_memory_query "$PROJECT_DIR" "$TYPE" "$SIMILAR"
+        else
+            json_memory_query "$PROJECT_DIR" "$TYPE" "$SIMILAR"
+        fi
+        ;;
+
+    "")
+        printf 'Usage: forge-memory <add|query> [options]\n' >&2
+        exit 1
+        ;;
+
+    *)
+        printf 'error: unknown subcommand: %s\n' "$SUBCOMMAND" >&2
+        exit 1
+        ;;
+esac
