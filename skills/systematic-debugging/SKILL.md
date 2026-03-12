@@ -113,7 +113,7 @@ You MUST complete each phase before proceeding to the next.
 
    **WHEN error is deep in call stack:**
 
-   See `superpowers:systematic-debugging` → `root-cause-tracing.md` for the complete backward tracing technique.
+   See `forge:systematic-debugging` → `root-cause-tracing.md` for the complete backward tracing technique.
 
    **Quick version:**
    - Where does bad value originate?
@@ -178,7 +178,7 @@ You MUST complete each phase before proceeding to the next.
    - Automated test if possible
    - One-off test script if no framework
    - MUST have before fixing
-   - Use **superpowers:test-driven-development** for writing proper failing tests
+   - Use **forge:test-driven-development** for writing proper failing tests
 
 2. **Implement Single Fix**
    - Address the root cause identified
@@ -214,6 +214,23 @@ You MUST complete each phase before proceeding to the next.
 
    This is NOT a failed hypothesis — this is a wrong architecture.
 
+## Risk Tier Integration
+
+Read the project risk tier before starting:
+
+```bash
+forge-state get risk.tier
+```
+
+**Elevated+ bugs require documented root cause:**
+
+```bash
+# After root cause confirmed (Phase 1 complete):
+forge-memory add discovery "<root-cause-description>"
+```
+
+This ensures findings persist across sessions and are visible to the team.
+
 ## Long Session: Fork to Preserve Context
 
 When debugging is taking many turns and context is getting heavy:
@@ -240,7 +257,7 @@ When multiple independent root cause hypotheses exist in different subsystems:
 IF 2+ hypotheses are plausible AND
    each lives in a different subsystem/component:
 
-  Use superpowers:dispatching-parallel-agents to investigate concurrently:
+  Use the Task tool or forge:composing-teams to investigate concurrently:
   - Each agent investigates one hypothesis in isolation
   - Agents report findings independently
   - Lead evaluates findings and identifies root cause
@@ -250,24 +267,31 @@ IF 2+ hypotheses are plausible AND
 
 Do not use parallel investigation when hypotheses are interdependent — investigate Phase 2 first to confirm independence.
 
+**Team escalation:** When debugging blocks multiple team tasks, elevate to the team lead immediately rather than continuing to investigate alone.
+
 ## State Persistence (Cross-Session Debugging)
 
-For bugs that take multiple sessions to resolve, record findings in `.superpowers/state.yml`:
+For bugs that take multiple sessions to resolve, record findings using forge-state:
 
-```yaml
-# Add under a debug key if debugging spans sessions
-debug:
-  issue: "brief description"
-  phase: 2                      # current phase
-  confirmed_not_root_cause:
-    - "tried X — ruled out because Y"
-    - "tried Z — ruled out because W"
-  current_hypothesis: "the problem is in component A because B"
-  evidence_gathered:
-    - "component boundary log shows X enters but Y exits"
+```bash
+# Record current debugging state
+forge-state set debug.issue "brief description"
+forge-state set debug.phase 2
+forge-state set debug.current_hypothesis "the problem is in component A because B"
+
+# Record ruled-out causes (append one entry at a time)
+forge-state set debug.ruled_out "tried X — ruled out because Y"
+
+# Record evidence gathered
+forge-state set debug.evidence "component boundary log shows X enters but Y exits"
 ```
 
-On session resume, read this to skip re-investigation of already-ruled-out causes.
+On session resume, read this to skip re-investigation of already-ruled-out causes:
+
+```bash
+forge-state get debug.phase
+forge-state get debug.current_hypothesis
+```
 
 ## Red Flags — STOP and Follow Process
 
@@ -341,21 +365,9 @@ Available in this skill's directory:
 - **`condition-based-waiting.md`** — Replace arbitrary timeouts with condition polling
 
 **Related skills:**
-- **superpowers:test-driven-development** — For creating failing test case (Phase 4, Step 1)
-- **superpowers:verification-before-completion** — Verify fix worked before claiming success
-- **superpowers:dispatching-parallel-agents** — Parallel hypothesis investigation
-
-## Team Context
-
-**Parallel investigation:** When multiple potential root causes exist in different subsystems, use **superpowers:dispatching-parallel-agents** to investigate each hypothesis concurrently.
-
-**Team escalation:** When debugging blocks multiple team tasks, elevate to the team lead immediately rather than continuing to investigate alone. The lead can reassign dependent tasks or provide additional context.
-
-## Team Context
-
-**Parallel investigation:** When multiple potential root causes exist in different subsystems, consider using `superpowers:dispatching-parallel-agents` to investigate each hypothesis concurrently.
-
-**Team escalation:** When debugging blocks multiple team tasks, elevate to the team lead immediately rather than continuing to investigate alone. The lead can reassign dependent tasks or provide additional context.
+- **forge:test-driven-development** — For creating failing test case (Phase 4, Step 1)
+- **forge:verification-before-completion** — Verify fix worked before claiming success
+- **forge:composing-teams** — Parallel hypothesis investigation
 
 ## Real-World Impact
 

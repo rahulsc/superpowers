@@ -46,7 +46,7 @@ Scan for agent `.md` files in order of priority:
 
 1. `.claude/agents/` (project-level, highest priority)
 2. `~/.claude/agents/` (global/personal)
-3. Superpowers `agents/` directory (shipped defaults, lowest priority)
+3. Forge `agents/` directory (shipped defaults, lowest priority)
 
 Deduplicate by name: project overrides global overrides shipped.
 
@@ -86,13 +86,23 @@ Add the team roster to the design doc:
 |------|-----------------|-------|-------|------|
 | [instance-name] | [agent-name] | [count] | [model] | [tier] |
 
+Then persist the roster to Forge state:
+
+```bash
+forge-state set team.roster.<role> <agent-def>
+# e.g.:
+forge-state set team.roster.frontend-engineer frontend-engineer
+forge-state set team.roster.backend-engineer backend-engineer
+forge-state set team.roster.qa-engineer qa-engineer
+```
+
 ### Step 5: Route to Planning
 
 Apply fitness check:
 - Roster has 2+ distinct specialist roles AND work has parallelizable components → recommend team plan format during writing-plans
 - Otherwise → recommend standard serial format
 
-Either way, invoke `superpowers:writing-plans` next. The unified writing-plans skill handles both formats based on a Team Fitness Check.
+Either way, invoke `forge:writing-plans` next. The unified writing-plans skill handles both formats based on a Team Fitness Check.
 
 ## Key Principles
 
@@ -105,10 +115,11 @@ Either way, invoke `superpowers:writing-plans` next. The unified writing-plans s
 ## Integration
 
 **Before this skill:**
-- **superpowers:brainstorming** — Design approved, worktree created
+- **forge:brainstorming** — Design approved, worktree created
+- **forge:setting-up-project** — Project initialized, risk tier set
 
 **After this skill:**
-- **superpowers:writing-plans** — Creates the implementation plan using the team roster
+- **forge:writing-plans** — Creates the implementation plan using the team roster
 
 ## References
 

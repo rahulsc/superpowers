@@ -21,8 +21,8 @@ Some situations don't need a worktree. Check before proceeding:
 IF user opted out via CLAUDE.md (worktrees: false) OR
    task is a trivial one-file fix AND no team involved:
 
-  Record in state.yml:
-    worktree: null
+  Run:
+    forge-state set worktree null
 
   Skip the rest of this skill.
   Proceed directly to the next step.
@@ -69,7 +69,7 @@ If a setup command is specified, use it. Otherwise auto-detect below.
 Worktrees share the git repository but NOT untracked files. Copy these if they exist:
 
 ```bash
-# From the repo root (worktree.repo_root in state.yml):
+# From the repo root (worktree.repo_root in state):
 REPO_ROOT="$(git worktree list --porcelain | head -1 | sed 's/worktree //')"
 
 # Environment files
@@ -122,23 +122,21 @@ go test ./...
 
 **If tests pass:** Continue.
 
-### 4. Record in state.yml
+### 4. Record in Forge State
 
-After a successful baseline, write to `.superpowers/state.yml`:
-
-```yaml
-worktree:
-  main:
-    path: <absolute-path-to-worktree>    # from EnterWorktree result
-    branch: <branch-name>                # from EnterWorktree result
-    repo_root: <absolute-path-to-repo>   # git rev-parse --show-toplevel
-```
-
-Also update `phase: executing` if entering execution from here.
+After a successful baseline, write worktree paths using forge-state:
 
 ```bash
-# Get repo root for state.yml
-git rev-parse --show-toplevel
+# Record main worktree state
+forge-state set worktree.main.path <absolute-path-to-worktree>
+forge-state set worktree.main.branch <branch-name>
+forge-state set worktree.main.repo_root $(git rev-parse --show-toplevel)
+```
+
+Also update phase if entering execution from here:
+
+```bash
+forge-state set phase executing
 ```
 
 ### 5. Report Location
@@ -146,7 +144,7 @@ git rev-parse --show-toplevel
 ```
 Worktree ready at <full-path>
 Tests passing (<N> tests, 0 failures)
-State recorded in .superpowers/state.yml
+State recorded in .forge/state.yml
 Ready to implement <feature-name>
 ```
 
@@ -164,22 +162,19 @@ When running as a lead with multiple implementers (agent-team-driven-development
 git worktree add .worktrees/<implementer-name> -b <implementer-name>
 ```
 
-After each implementer's worktree is created, record it in state.yml:
+After each implementer's worktree is created, record it using forge-state:
 
-```yaml
-worktree:
-  implementers:
-    react-engineer:
-      path: /tmp/.claude/worktrees/wt-abc123
-      branch: wt-abc123
-      last_sha: ""   # populated after first commit
+```bash
+forge-state set worktree.implementers.<role>.path /tmp/.claude/worktrees/wt-abc123
+forge-state set worktree.implementers.<role>.branch wt-abc123
+forge-state set worktree.implementers.<role>.last_sha ""
 ```
 
 ### QA Worktree Strategy
 
 QA agents write test files in the **lead's worktree**, not a separate QA worktree:
 
-- QA tests live in `worktree.main.path`
+- QA tests live at `worktree.main.path`
 - Implementers work in their own `worktree.implementers.<role>.path`
 - No conflict: test files and implementation files are in different locations
 
@@ -198,7 +193,8 @@ git merge <implementer-branch-2>
 # Verify all tests still pass
 npm test   # or project equivalent
 
-# Update state.yml: clear implementer entries that are merged
+# Clear merged implementer entries from state
+forge-state set worktree.implementers.<role>.last_sha <merged-sha>
 ```
 
 Next wave's implementers branch from the merged result.
@@ -220,10 +216,10 @@ Next wave's implementers branch from the merged result.
 - **Problem:** Breaks TDD red/green proof — can't confirm fixes later
 - **Fix:** Report failures, get explicit permission to proceed
 
-### Forgetting state.yml write
+### Forgetting state write
 
 - **Problem:** Cross-session recovery fails; finishing skill can't find repo_root
-- **Fix:** Always write `worktree.main.*` before starting work
+- **Fix:** Always run `forge-state set worktree.main.*` before starting work
 
 ### Auto-committing .gitignore changes
 
@@ -236,24 +232,24 @@ Next wave's implementers branch from the merged result.
 - Skip baseline test verification
 - Proceed with failing tests without asking
 - Commit repository changes (like .gitignore edits) without user consent
-- Omit state.yml write after worktree creation
+- Omit forge-state write after worktree creation
 
 **Always:**
 - Check CLAUDE.md for setup preferences
 - Auto-detect and run project setup
 - Verify clean test baseline
-- Record worktree paths in state.yml
+- Record worktree paths via forge-state
 
 ## Integration
 
 **Called by:**
-- **brainstorming** (after design approval) — REQUIRED before implementation
-- **subagent-driven-development** — REQUIRED before executing any tasks
-- **executing-plans** — REQUIRED before executing any tasks
+- **forge:brainstorming** (after design approval) — REQUIRED before implementation
+- **forge:subagent-driven-development** — REQUIRED before executing any tasks
+- **forge:executing-plans** — REQUIRED before executing any tasks
 - Any skill needing isolated workspace
 
 **Pairs with:**
-- **finishing-a-development-branch** — REQUIRED for cleanup after work complete; uses `worktree.repo_root` from state.yml
+- **forge:finishing-a-development-branch** — REQUIRED for cleanup after work complete; uses `worktree.repo_root` from state
 
-**Reads from state.yml:** `worktree: null` (skip signal), phase
-**Writes to state.yml:** `worktree.main.*`, `phase: executing`
+**Reads from state:** `worktree: null` (skip signal), phase
+**Writes to state:** `worktree.main.*`, `phase: executing`
