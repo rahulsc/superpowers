@@ -1,0 +1,11 @@
+name: hello-world
+version: 0.1.0
+description: A sample Forge pack demonstrating the pack protocol
+forge_compatibility: ">=0.1.0"
+provides:
+  skills: [greeting-workflow]
+  policies: [greeting-policy]
+  agents: []
+triggers:
+  file_patterns: []
+  stack_signals: []

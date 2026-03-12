@@ -1,0 +1,262 @@
+#!/usr/bin/env bash
+# forge-pack — Install, remove, and list Forge packs
+# Usage:
+#   forge-pack install <path>   Install a pack from a local directory
+#   forge-pack remove <name>    Remove an installed pack by name
+#   forge-pack list             List all installed packs
+set -euo pipefail
+
+FORGE_DIR=".forge"
+PACKS_DIR="$FORGE_DIR/packs"
+POLICIES_DIR="$FORGE_DIR/policies"
+PROJECT_YAML="$FORGE_DIR/project.yaml"
+
+# ── helpers ────────────────────────────────────────────────────────────────
+
+die() { echo "Error: $*" >&2; exit 1; }
+
+require_forge() {
+    if [ ! -f "$PROJECT_YAML" ]; then
+        die ".forge/project.yaml not found. Adopt Forge first (forge:adopting-forge)."
+    fi
+}
+
+yaml_field() {
+    local file="$1" field="$2"
+    grep "^${field}:" "$file" 2>/dev/null | sed "s/^${field}:[[:space:]]*//" | tr -d '"' | head -1
+}
+
+# ── subcommands ────────────────────────────────────────────────────────────
+
+cmd_list() {
+    require_forge
+    mkdir -p "$PACKS_DIR"
+
+    local count=0
+    for pack_dir in "$PACKS_DIR"/*/; do
+        [ -d "$pack_dir" ] || continue
+        local manifest="$pack_dir/pack.yaml"
+        [ -f "$manifest" ] || continue
+
+        local name version description
+        name=$(yaml_field "$manifest" "name")
+        version=$(yaml_field "$manifest" "version")
+        description=$(yaml_field "$manifest" "description")
+
+        # Extract provides block
+        local skills policies agents
+        skills=$(grep -A5 "^provides:" "$manifest" 2>/dev/null | grep "skills:" | sed 's/.*skills:[[:space:]]*//' | tr -d '[]' || echo "")
+        policies=$(grep -A5 "^provides:" "$manifest" 2>/dev/null | grep "policies:" | sed 's/.*policies:[[:space:]]*//' | tr -d '[]' || echo "")
+        agents=$(grep -A5 "^provides:" "$manifest" 2>/dev/null | grep "agents:" | sed 's/.*agents:[[:space:]]*//' | tr -d '[]' || echo "")
+
+        echo "  $name ($version)"
+        echo "    $description"
+        [ -n "$skills" ] && echo "    skills:   $skills"
+        [ -n "$policies" ] && echo "    policies: $policies"
+        [ -n "$agents" ] && [ "$agents" != "[]" ] && echo "    agents:   $agents"
+        count=$((count + 1))
+    done
+
+    if [ "$count" -eq 0 ]; then
+        echo "No packs installed."
+    else
+        echo ""
+        echo "$count pack(s) installed."
+    fi
+}
+
+cmd_install() {
+    require_forge
+    local pack_src="${1:-}"
+    [ -n "$pack_src" ] || die "Usage: forge-pack install <path>"
+
+    # Validate pack source
+    [ -d "$pack_src" ] || die "Pack directory not found: $pack_src"
+
+    local manifest="$pack_src/pack.yaml"
+    [ -f "$manifest" ] || die "pack.yaml not found in $pack_src — not a valid Forge pack"
+
+    # Validate required fields
+    local name version description forge_compat
+    name=$(yaml_field "$manifest" "name")
+    version=$(yaml_field "$manifest" "version")
+    description=$(yaml_field "$manifest" "description")
+    forge_compat=$(yaml_field "$manifest" "forge_compatibility")
+
+    [ -n "$name" ] || die "pack.yaml is missing required field 'name'"
+    [ -n "$version" ] || die "pack.yaml is missing required field 'version'"
+    [ -n "$description" ] || die "pack.yaml is missing required field 'description'"
+    [ -n "$forge_compat" ] || die "pack.yaml is missing required field 'forge_compatibility'"
+
+    mkdir -p "$PACKS_DIR" "$POLICIES_DIR"
+
+    local install_dir="$PACKS_DIR/$name"
+
+    # Idempotent: if already installed, remove first
+    if [ -d "$install_dir" ]; then
+        echo "Pack '$name' already installed — reinstalling (remove then install)."
+        _remove_pack "$name"
+    fi
+
+    # Copy pack to install location
+    cp -r "$pack_src" "$install_dir"
+    echo "Installed pack: $name ($version) → $install_dir"
+
+    # Merge policies: append rules with source annotation
+    if [ -d "$pack_src/policies" ]; then
+        for policy_file in "$pack_src/policies"/*.yaml; do
+            [ -f "$policy_file" ] || continue
+            local policy_name
+            policy_name=$(basename "$policy_file")
+            local target="$POLICIES_DIR/$policy_name"
+
+            # Append each rule from the pack policy, adding source annotation
+            _merge_policy "$policy_file" "$name" "$target"
+            echo "  Merged policy: $policy_name (source: pack/$name)"
+        done
+    fi
+
+    echo "Done. Pack '$name' installed successfully."
+}
+
+cmd_remove() {
+    require_forge
+    local name="${1:-}"
+    [ -n "$name" ] || die "Usage: forge-pack remove <name>"
+
+    local install_dir="$PACKS_DIR/$name"
+    [ -d "$install_dir" ] || die "Pack '$name' is not installed (.forge/packs/$name/ not found)"
+
+    _remove_pack "$name"
+    echo "Done. Pack '$name' removed."
+}
+
+# ── internal helpers ────────────────────────────────────────────────────────
+
+# Merge a pack policy file into the target policy file, annotating each rule.
+# Reads each rule block (starting at "- match:") and appends it with a
+# "source: pack/<name>" line. Works regardless of whether a rules: header exists.
+_merge_policy() {
+    local src="$1" pack_name="$2" target="$3"
+
+    awk -v pack="$pack_name" '
+    {
+        lines[NR] = $0
+    }
+    END {
+        i = 1
+        while (i <= NR) {
+            # Skip top-level non-rule lines (e.g. rules: header, comments)
+            if (lines[i] !~ /^[[:space:]]*-[[:space:]]*match:/) {
+                i++
+                continue
+            }
+            # Collect the full rule block
+            printf "%s\n", lines[i]
+            i++
+            while (i <= NR && lines[i] !~ /^[[:space:]]*-[[:space:]]*match:/ && lines[i] ~ /^[[:space:]]/) {
+                printf "%s\n", lines[i]
+                i++
+            }
+            # Inject source annotation
+            printf "    source: pack/%s\n", pack
+        }
+    }
+    ' "$src" >> "$target"
+}
+
+# Remove all policy rules annotated with source: pack/<name>
+_remove_pack() {
+    local name="$1"
+    local install_dir="$PACKS_DIR/$name"
+
+    # Clean up policy rules for this pack from all policy files
+    if [ -d "$POLICIES_DIR" ]; then
+        for policy_file in "$POLICIES_DIR"/*.yaml; do
+            [ -f "$policy_file" ] || continue
+            _strip_pack_rules "$policy_file" "$name"
+        done
+    fi
+
+    # Remove pack directory
+    rm -rf "$install_dir"
+}
+
+# Strip all rules with source: pack/<name> from a policy file.
+# Uses a lookahead approach: collects full rule blocks, skips any with the annotation.
+# If file becomes empty of rules, delete it (unless it's default.yaml).
+_strip_pack_rules() {
+    local file="$1" pack_name="$2"
+    local base
+    base=$(basename "$file")
+
+    # Fast path: skip if no annotation for this pack
+    if ! grep -q "source: pack/$pack_name" "$file" 2>/dev/null; then
+        return
+    fi
+
+    local tmp
+    tmp=$(mktemp)
+
+    awk -v pack="$pack_name" '
+    {
+        lines[NR] = $0
+    }
+    END {
+        i = 1
+        while (i <= NR) {
+            # Non-rule lines: pass through (headers, comments, blank lines at top)
+            if (lines[i] !~ /^[[:space:]]*-[[:space:]]*match:/) {
+                # But only pass through lines that are not indented rule continuations
+                # (those will be handled inside rule blocks)
+                print lines[i]
+                i++
+                continue
+            }
+
+            # Collect the full rule block
+            block_start = i
+            has_source = 0
+            buf = lines[i]
+            i++
+            while (i <= NR && lines[i] !~ /^[[:space:]]*-[[:space:]]*match:/ && lines[i] ~ /^[[:space:]]/) {
+                if (lines[i] ~ ("source:[[:space:]]*pack/" pack)) {
+                    has_source = 1
+                }
+                buf = buf "\n" lines[i]
+                i++
+            }
+
+            # Emit the block only if it is NOT from our pack
+            if (!has_source) {
+                print buf
+            }
+        }
+    }
+    ' "$file" > "$tmp"
+
+    # Check if any rule entries remain
+    local has_rules=0
+    if grep -q "^[[:space:]]*-[[:space:]]*match:" "$tmp" 2>/dev/null; then
+        has_rules=1
+    fi
+
+    if [ "$has_rules" -eq 0 ] && [ "$base" != "default.yaml" ]; then
+        rm -f "$file" "$tmp"
+        echo "  Removed empty policy file: $base"
+    else
+        mv "$tmp" "$file"
+        echo "  Cleaned policy rules from: $base"
+    fi
+}
+
+# ── dispatch ───────────────────────────────────────────────────────────────
+
+CMD="${1:-}"
+case "$CMD" in
+    install) cmd_install "${2:-}" ;;
+    remove)  cmd_remove "${2:-}" ;;
+    list)    cmd_list ;;
+    "")      die "Usage: forge-pack <install|remove|list>" ;;
+    *)       die "Unknown subcommand: $CMD. Use install, remove, or list." ;;
+esac
