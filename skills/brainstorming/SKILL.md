@@ -72,7 +72,7 @@ digraph brainstorming {
     "Reviewer approved?" -> "Fix issues, re-dispatch\n(max 5 iterations)" [label="issues found"];
     "Reviewer approved?" -> "User reviews spec?" [label="approved"];
     "Fix issues, re-dispatch\n(max 5 iterations)" -> "Reviewer approved?";
-    "User reviews spec?" -> "Write design doc to docs/plans/<project>/design.md" [label="changes requested"];
+    "User reviews spec?" -> "Write design to docs/plans/<project>/design.md" [label="changes requested"];
     "User reviews spec?" -> "forge:setting-up-project" [label="approved"];
 }
 ```
