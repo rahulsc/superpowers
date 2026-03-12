@@ -122,15 +122,6 @@ When feedback comes from a team peer (another specialist on the same team):
 - **Knowledge transfer** — questions from peer reviewers identify knowledge gaps useful for later waves
 - **Same rules apply** — verify technically, push back if wrong, no performative agreement
 
-### From Team Peers
-
-When feedback comes from a team peer (another specialist on the same team):
-
-- **Context advantage** — peer reviewers often understand the codebase from their own recent work
-- **Escalate disagreements** — if you disagree with peer feedback, involve the team lead before rejecting
-- **Knowledge transfer** — questions from peer reviewers identify knowledge gaps useful for later waves
-- **Same rules apply** — verify technically, push back if wrong, no performative agreement
-
 ## YAGNI Check for "Professional" Features
 
 ```
@@ -261,4 +252,5 @@ No performative agreement. Technical rigor always.
 ## Integration
 
 **Pairs with:**
-- **requesting-code-review** — the other side of the review process; handles dispatching review and processing results
+- **forge:requesting-code-review** — the other side of the review process; handles dispatching review and processing results
+- **forge:verification-before-completion** — canonical evidence format for review verdicts

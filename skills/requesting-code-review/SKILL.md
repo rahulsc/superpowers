@@ -5,7 +5,7 @@ description: Use when completing tasks, implementing major features, or before m
 
 # Requesting Code Review
 
-Dispatch superpowers:code-reviewer subagent to catch issues before they cascade. The reviewer gets precisely crafted context for evaluation — never your session's history. This keeps the reviewer focused on the work product, not your thought process, and preserves your own context for continued work.
+Dispatch forge:code-reviewer subagent to catch issues before they cascade. The reviewer gets precisely crafted context for evaluation — never your session's history. This keeps the reviewer focused on the work product, not your thought process, and preserves your own context for continued work.
 
 **Announce at start:** "I'm using the requesting-code-review skill to get this code reviewed."
 
@@ -23,6 +23,19 @@ Dispatch superpowers:code-reviewer subagent to catch issues before they cascade.
 - Before refactoring (baseline check)
 - After fixing complex bug
 
+## Risk-Tier Dispatch
+
+Read the current risk tier from `.forge/state.yml` via `forge-state get risk.tier` and dispatch reviewers accordingly:
+
+| Tier | Code Review | Security Review | Required? |
+|------|------------|----------------|-----------|
+| Minimal | - | - | Not required — optional at author's discretion |
+| Standard | code-reviewer | - | Optional |
+| Elevated | code-reviewer | - | Mandatory — must pass before merge |
+| Critical | code-reviewer | security-reviewer | Mandatory — both reviews required |
+
+When no tier is set, default to **Standard**.
+
 ## How to Request
 
 **1. Get git SHAs:**
@@ -33,7 +46,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 
 **2. Dispatch code-reviewer subagent:**
 
-Use Task tool with superpowers:code-reviewer type, fill template at `code-reviewer.md`
+Use Task tool with forge:code-reviewer type, fill template at `code-reviewer.md`
 
 **Placeholders:**
 - `{WHAT_WAS_IMPLEMENTED}` - What you just built
@@ -48,7 +61,7 @@ Reviewer reports must include **citation evidence** (file:line per requirement).
 
 > "Please provide citation evidence: file:line reference and verdict per requirement."
 
-See `superpowers:verification-before-completion` for the canonical evidence format.
+See `forge:verification-before-completion` for the canonical evidence format.
 
 **4. Act on feedback:**
 - Fix Critical issues immediately
@@ -66,7 +79,7 @@ You: Let me request code review before proceeding.
 BASE_SHA=$(git log --oneline | grep "Task 1" | head -1 | awk '{print $1}')
 HEAD_SHA=$(git rev-parse HEAD)
 
-[Dispatch superpowers:code-reviewer subagent]
+[Dispatch forge:code-reviewer subagent]
   WHAT_WAS_IMPLEMENTED: Verification and repair functions for conversation index
   PLAN_OR_REQUIREMENTS: Task 2 from docs/deployment/plans/plan.md
   BASE_SHA: a7981ec
@@ -102,7 +115,7 @@ You: [Fix progress indicators]
 ## Team-Aware Review
 
 **Roster-aware reviewer dispatch:**
-When a team roster (from composing-teams) includes reviewer agents (e.g., `architect`, `security-reviewer`), use those agent definitions for review dispatch instead of the default `superpowers:code-reviewer`.
+Read the team roster via `forge-state get team.roster`. When the roster includes reviewer agents (e.g., `architect`, `security-reviewer`), use those agent definitions for review dispatch instead of the default `forge:code-reviewer`.
 
 **Peer review in teams:**
 When operating in a team context, specialists can peer-review each other's work:
