@@ -184,11 +184,11 @@ echo ""
 # ── Boundary 5: verification → finishing ─────────────────────────────────────
 echo "--- Boundary 5: verification-before-completion → finishing-a-development-branch ---"
 
-# finishing-a-development-branch reads verification.passed
-if skill_reads_key "finishing-a-development-branch" "verification.passed"; then
-    pass "finishing-a-development-branch reads verification.passed"
+# finishing-a-development-branch reads verification.result
+if skill_reads_key "finishing-a-development-branch" "verification.result"; then
+    pass "finishing-a-development-branch reads verification.result"
 else
-    fail "finishing-a-development-branch does not read verification.passed"
+    fail "finishing-a-development-branch does not read verification.result"
 fi
 
 # finishing-a-development-branch references worktree cleanup (implementers.*)

@@ -20,10 +20,10 @@ Guide completion of development work by presenting clear options and handling ch
 **Before doing anything, check that verification has passed:**
 
 ```bash
-forge-state get verification.passed
+forge-state get verification.result
 ```
 
-**If not true**, block immediately:
+**If not `pass`**, block immediately:
 ```
 Cannot finish: verification has not passed.
 Run forge:verification-before-completion first, then retry.
@@ -227,7 +227,7 @@ done
 
 **Skipping verification gate**
 - **Problem:** Finish unverified work
-- **Fix:** Always check `forge-state get verification.passed` before proceeding
+- **Fix:** Always check `forge-state get verification.result` before proceeding
 
 **Skipping test verification**
 - **Problem:** Merge broken code, create failing PR
@@ -256,7 +256,7 @@ done
 ## Red Flags
 
 **Never:**
-- Proceed without checking verification.passed
+- Proceed without checking verification.result
 - Proceed with failing tests
 - Merge without verifying tests on result
 - Delete work without confirmation
