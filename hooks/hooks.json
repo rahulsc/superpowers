@@ -40,7 +40,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd' run-tests --tier 1",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" run-tests --tier 1",
             "async": false
           }
         ]

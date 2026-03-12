@@ -29,9 +29,10 @@ fi
 
 # --- Read project.yaml fields (no external parser required) ---
 _yaml_get() {
+    # M3 fix: use -F (fixed string) to prevent regex injection from key names
     local key="$1"
     local file="$2"
-    grep -m1 "^${key}:" "$file" 2>/dev/null | sed "s/^${key}:[[:space:]]*//" | tr -d '"' || true
+    grep -m1 -F "${key}:" "$file" 2>/dev/null | sed "s/^${key}:[[:space:]]*//" | tr -d '"' || true
 }
 
 PROJECT_NAME=$(_yaml_get "name" "$PROJECT_YAML")

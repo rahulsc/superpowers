@@ -104,25 +104,56 @@ PYEOF
         )
         printf '%s' "$result"
     else
-        # Fallback: basic grep-based matching (first match wins for highest explicit tier)
-        local tier="minimal"
-        local require="verification"
-        # Check each file against known patterns
-        for f in $files; do
-            while IFS= read -r line; do
-                local match_val
-                match_val=$(printf '%s' "$line" | sed -n 's/.*match:[[:space:]]*//p' | tr -d '"')
-                if [ -n "$match_val" ]; then
-                    # Simple glob-ish: replace ** with *
-                    local pattern="${match_val//\*\*/*}"
-                    case "$f" in
-                        $pattern) : ;; # would match
-                        *) match_val="" ;;
-                    esac
-                fi
-            done < "$policy"
-        done
-        printf '%s:%s' "$tier" "$require"
+        # Fallback: basic grep-based matching when python3 is absent.
+        # State machine: parse match/tier/require lines, test each file against each rule.
+        # C1 fix: actually update tier/require when a pattern matches.
+        local best_tier="minimal"
+        local best_require="verification"
+        declare -A TIER_ORDER=([minimal]=0 [standard]=1 [elevated]=2 [critical]=3)
+
+        local cur_match="" cur_tier="" cur_require=""
+        _flush_rule() {
+            # Test all files against cur_match pattern; update best if higher tier
+            [ -z "$cur_match" ] && return
+            local pat="${cur_match//\*\*/*}"
+            for f in $files; do
+                case "$f" in
+                    $pat)
+                        local t="${cur_tier:-minimal}"
+                        local r="${cur_require:-verification}"
+                        if [ "${TIER_ORDER[$t]:-0}" -gt "${TIER_ORDER[$best_tier]:-0}" ]; then
+                            best_tier="$t"
+                            best_require="$r"
+                        fi
+                        ;;
+                esac
+            done
+        }
+
+        local in_rules=0
+        while IFS= read -r line; do
+            local stripped
+            stripped=$(printf '%s' "$line" | sed 's/^[[:space:]]*//')
+            [ "$stripped" = "rules:" ] && in_rules=1 && continue
+            [ "$in_rules" -eq 0 ] && continue
+            case "$stripped" in
+                "- match:"*)
+                    _flush_rule
+                    cur_match=$(printf '%s' "$stripped" | sed 's/^- match:[[:space:]]*//' | tr -d '"')
+                    cur_tier=""
+                    cur_require=""
+                    ;;
+                "tier:"*)
+                    cur_tier=$(printf '%s' "$stripped" | sed 's/^tier:[[:space:]]*//')
+                    ;;
+                "require:"*)
+                    cur_require=$(printf '%s' "$stripped" | sed 's/^require:[[:space:]]*//' | tr -d '[]' | tr ',' ' ' | tr -s ' ')
+                    ;;
+            esac
+        done < "$policy"
+        _flush_rule
+
+        printf '%s:%s' "$best_tier" "${best_require// /,}"
     fi
 }
 
@@ -131,8 +162,13 @@ TIER="${POLICY_RESULT%%:*}"
 REQUIRED_CSV="${POLICY_RESULT#*:}"
 
 # --- Check evidence ---
+# M2 fix: fall back to active.task from forge-state when FORGE_TASK_ID not set
+if [ -z "$TASK_ID" ] && command -v forge-state &>/dev/null; then
+    TASK_ID=$(forge-state get "active.task" --project-dir "$PROJECT_DIR" 2>/dev/null || true)
+fi
 if [ -z "$TASK_ID" ]; then
-    printf 'Cannot complete: FORGE_TASK_ID not set — cannot verify evidence\n'
+    printf 'Cannot complete: FORGE_TASK_ID not set and no active.task in state — cannot verify evidence\n'
+    printf 'Set active task: forge-state set active.task <task-id> --project-dir %s\n' "$PROJECT_DIR"
     exit 2
 fi
 

@@ -157,6 +157,28 @@ else
 fi
 
 echo ""
+echo "--- wave.compliance gate ---"
+OUT=$(bash "$GATE_CMD" check "wave.compliance" --project-dir "$TMPDIR" 2>&1)
+EXIT_CODE=$?
+if [ $EXIT_CODE -eq 2 ]; then
+    pass "forge-gate check wave.compliance (unset) exits 2"
+else
+    fail "forge-gate check wave.compliance (unset) should exit 2, got $EXIT_CODE"
+fi
+
+if command -v forge-state &>/dev/null; then
+    forge-state set "wave.compliance" "true" --project-dir "$TMPDIR" > /dev/null 2>&1
+
+    OUT=$(bash "$GATE_CMD" check "wave.compliance" --project-dir "$TMPDIR" 2>&1)
+    EXIT_CODE=$?
+    if [ $EXIT_CODE -eq 0 ]; then
+        pass "forge-gate check wave.compliance passes after set"
+    else
+        fail "forge-gate check wave.compliance should pass after set, got $EXIT_CODE"
+    fi
+fi
+
+echo ""
 echo "--- Missing gate name → error ---"
 OUT=$(bash "$GATE_CMD" check --project-dir "$TMPDIR" 2>&1)
 EXIT_CODE=$?
