@@ -98,6 +98,7 @@ For **light touch**:
 ```
 Files to create:
   .forge/project.yaml        — project config (name, stack, commands, storage)
+  .forge/local/.gitignore    — gitignore for local state files
 
 Files to modify:
   CLAUDE.md                  — append Forge section (existing content preserved)
@@ -109,7 +110,6 @@ Files to create (new):
 For **full adoption**, additionally:
 ```
   .forge/policies/default.yaml   — risk tier rules for detected paths
-  .forge/local/.gitignore        — gitignore for local state
   hooks registered in hooks.json via forge-routing
 ```
 

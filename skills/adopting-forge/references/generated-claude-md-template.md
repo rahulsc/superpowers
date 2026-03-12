@@ -8,7 +8,7 @@ Templates used by `adopting-forge` when creating or appending AI surface files.
 When `CLAUDE.md` already exists, append the following section at the end.
 Never modify or remove existing content.
 
-```markdown
+~~~markdown
 
 ---
 
@@ -41,15 +41,16 @@ forge-gate check <gate-name>       # check lifecycle gate
 ### Tools Location
 
 Forge tools live in `.forge/bin/`. Add to PATH or call directly:
+
 ```bash
 export PATH=".forge/bin:$PATH"
 ```
-```
+~~~
 
 
 ## CLAUDE.md — Full File (when no CLAUDE.md exists)
 
-```markdown
+~~~markdown
 # Project: <repo-name>
 
 ## Stack
@@ -91,14 +92,14 @@ forge-gate check <gate-name>
 ```bash
 export PATH=".forge/bin:$PATH"
 ```
-```
+~~~
 
 
 ## AGENTS.md — Codex Multi-Platform Adapter
 
 Create `AGENTS.md` at repo root for OpenAI Codex and other agent platforms.
 
-```markdown
+~~~markdown
 # Agent Instructions: <repo-name>
 
 This repository uses **Forge** for structured AI development workflows.
@@ -128,6 +129,7 @@ Before starting any task:
 ## Evidence
 
 Record evidence for each task:
+
 ```bash
 .forge/bin/forge-evidence add <task-id> <artifact>
 .forge/bin/forge-evidence list <task-id>
@@ -139,7 +141,7 @@ Record evidence for each task:
 .forge/bin/forge-state get <key>
 .forge/bin/forge-state set <key> <value>
 ```
-```
+~~~
 
 ## Substitution Variables
 
