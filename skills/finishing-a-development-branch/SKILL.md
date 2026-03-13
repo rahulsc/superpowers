@@ -175,7 +175,18 @@ Then: Cleanup (Step 6) — skip knowledge promotion for discarded work.
 
 4. **Skip entirely for Option 4** (discarded work has no discoveries to promote).
 
-### Step 6: State Cleanup and Worktree Teardown
+### Step 6: Task List Cleanup
+
+**Mark all remaining `in_progress` tasks as `completed`:**
+
+```
+TaskList → for each task with status "in_progress":
+  TaskUpdate(taskId, status: "completed")
+```
+
+This catches any sub-tasks (impl-task-*, review-task-*, qa-wave*, etc.) left behind by agent teams or subagent workflows. Do this BEFORE worktree/state cleanup so the status line is clean.
+
+### Step 7: State Cleanup and Worktree Teardown
 
 **Clean `.forge/local/` evidence for the completed feature:**
 
@@ -253,6 +264,10 @@ done
 - **Problem:** `.forge/local/` accumulates stale evidence from old features
 - **Fix:** Always clean `.forge/local/` evidence for completed feature
 
+**Leaving stale tasks**
+- **Problem:** Sub-tasks (impl-task-*, review-task-*, qa-wave*) left in `in_progress` after work completes, causing stuck status spinners
+- **Fix:** Always run task list cleanup (Step 6) before state/worktree cleanup
+
 ## Red Flags
 
 **Never:**
@@ -268,6 +283,7 @@ done
 - Present exactly 4 options
 - Get typed confirmation for Option 4
 - Promote knowledge before cleanup
+- Clean up all remaining `in_progress` tasks (Step 6) before state cleanup
 - Clean `.forge/local/` evidence after finish
 - Clean up worktree for Options 1, 2 & 4
 

@@ -333,7 +333,8 @@ After all tasks complete, before calling finishing-a-development-branch, run a f
 2. Check: Do the pieces fit together? Any interface mismatches?
 3. Run full test suite (not just per-task tests)
 4. Check for regressions in unrelated code
-5. Report: "Cross-cutting review complete. [N files changed, full suite passes, no regressions]."
+5. **Clean up task list** — mark all remaining `in_progress` tasks as `completed` via `TaskUpdate`
+6. Report: "Cross-cutting review complete. [N files changed, full suite passes, no regressions]."
 
 This catches integration issues that per-task reviews miss.
 

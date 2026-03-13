@@ -289,9 +289,12 @@ digraph agent_team {
 
 1. All waves done, all tasks reviewed
 2. Dispatch final cross-cutting code reviewer (`forge:code-reviewer`) for entire implementation
-3. Shutdown all implementers via `SendMessage` with `type: "shutdown_request"`
-4. `TeamDelete` after all members confirm shutdown
-5. Use `forge:finishing-a-development-branch`
+3. **Clean up task list** — mark all remaining `in_progress` tasks as `completed` via `TaskUpdate`. This includes implementer tasks, review tasks, QA tasks, and any other sub-tasks created during execution. Do this BEFORE shutdown so the status line reflects completion.
+4. Shutdown all implementers via `SendMessage` with `type: "shutdown_request"` (recipient = implementer name)
+5. `TeamDelete` (takes no parameters — uses current session's team context)
+6. Use `forge:finishing-a-development-branch`
+
+**Resilience:** Each cleanup step (3–6) is independent. If one fails, log the error and continue with the next. A failed `TeamDelete` must not block task cleanup or branch finishing.
 
 ### Cross-Task Dependency Check
 
@@ -351,9 +354,15 @@ Before marking the plan complete, review all completed tasks together for cross-
 - Skip either review stage (spec compliance AND code quality required)
 - Allow more than 3 re-review cycles without escalating
 
+**Cleanup — never:**
+- Skip task list cleanup (leaves `in_progress` tasks causing stuck status spinners)
+- Let a failed `TeamDelete` or `SendMessage` block subsequent cleanup steps
+- Finish without marking all sub-tasks (impl-task-*, review-task-*, qa-wave*, etc.) as completed
+
 **Recovery:**
 - Implementer stuck → check what's blocking via SendMessage, provide guidance
 - Implementer failed entirely → shut them down, spawn fresh specialist with context about what went wrong
+- Cleanup step fails → log the error, continue with next cleanup step (task cleanup, shutdown, TeamDelete, and finishing are each independent)
 - Never try to fix manually from the lead (context pollution)
 
 ## Team Lifecycle
