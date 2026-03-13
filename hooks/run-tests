@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run superpowers test suite
+# Run forge test suite
 # Called by Claude Code hooks or directly from terminal
 #
 # Usage:

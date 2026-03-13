@@ -1,13 +1,13 @@
-# Superpowers for Codex
+# Forge for Codex
 
-Guide for using Superpowers with OpenAI Codex via native skill discovery.
+Guide for using Forge with OpenAI Codex via native skill discovery.
 
 ## Quick Install
 
 Tell Codex:
 
 ```
-Fetch and follow instructions from https://raw.githubusercontent.com/obra/superpowers/refs/heads/main/.codex/INSTALL.md
+Fetch and follow instructions from https://raw.githubusercontent.com/rahulsc/superpowers/refs/heads/main/.codex/INSTALL.md
 ```
 
 ## Manual Installation
@@ -21,13 +21,13 @@ Fetch and follow instructions from https://raw.githubusercontent.com/obra/superp
 
 1. Clone the repo:
    ```bash
-   git clone https://github.com/obra/superpowers.git ~/.codex/superpowers
+   git clone https://github.com/rahulsc/superpowers.git ~/.codex/forge
    ```
 
 2. Create the skills symlink:
    ```bash
    mkdir -p ~/.agents/skills
-   ln -s ~/.codex/superpowers/skills ~/.agents/skills/superpowers
+   ln -s ~/.codex/forge/skills ~/.agents/skills/forge
    ```
 
 3. Restart Codex.
@@ -44,25 +44,25 @@ Use a junction instead of a symlink (works without Developer Mode):
 
 ```powershell
 New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.agents\skills"
-cmd /c mklink /J "$env:USERPROFILE\.agents\skills\superpowers" "$env:USERPROFILE\.codex\superpowers\skills"
+cmd /c mklink /J "$env:USERPROFILE\.agents\skills\forge" "$env:USERPROFILE\.codex\forge\skills"
 ```
 
 ## How It Works
 
-Codex has native skill discovery — it scans `~/.agents/skills/` at startup, parses SKILL.md frontmatter, and loads skills on demand. Superpowers skills are made visible through a single symlink:
+Codex has native skill discovery -- it scans `~/.agents/skills/` at startup, parses SKILL.md frontmatter, and loads skills on demand. Forge skills are made visible through a single symlink:
 
 ```
-~/.agents/skills/superpowers/ → ~/.codex/superpowers/skills/
+~/.agents/skills/forge/ -> ~/.codex/forge/skills/
 ```
 
-The `using-superpowers` skill is discovered automatically and enforces skill usage discipline — no additional configuration needed.
+The `forge-routing` skill is discovered automatically and enforces skill usage discipline -- no additional configuration needed.
 
 ## Usage
 
 Skills are discovered automatically. Codex activates them when:
 - You mention a skill by name (e.g., "use brainstorming")
 - The task matches a skill's description
-- The `using-superpowers` skill directs Codex to use one
+- The `forge-routing` skill directs Codex to use one
 
 ### Personal Skills
 
@@ -85,12 +85,12 @@ description: Use when [condition] - [what it does]
 [Your skill content here]
 ```
 
-The `description` field is how Codex decides when to activate a skill automatically — write it as a clear trigger condition.
+The `description` field is how Codex decides when to activate a skill automatically -- write it as a clear trigger condition.
 
 ## Updating
 
 ```bash
-cd ~/.codex/superpowers && git pull
+cd ~/.codex/forge && git pull
 ```
 
 Skills update instantly through the symlink.
@@ -98,23 +98,23 @@ Skills update instantly through the symlink.
 ## Uninstalling
 
 ```bash
-rm ~/.agents/skills/superpowers
+rm ~/.agents/skills/forge
 ```
 
 **Windows (PowerShell):**
 ```powershell
-Remove-Item "$env:USERPROFILE\.agents\skills\superpowers"
+Remove-Item "$env:USERPROFILE\.agents\skills\forge"
 ```
 
-Optionally delete the clone: `rm -rf ~/.codex/superpowers` (Windows: `Remove-Item -Recurse -Force "$env:USERPROFILE\.codex\superpowers"`).
+Optionally delete the clone: `rm -rf ~/.codex/forge` (Windows: `Remove-Item -Recurse -Force "$env:USERPROFILE\.codex\forge"`).
 
 ## Troubleshooting
 
 ### Skills not showing up
 
-1. Verify the symlink: `ls -la ~/.agents/skills/superpowers`
-2. Check skills exist: `ls ~/.codex/superpowers/skills`
-3. Restart Codex — skills are discovered at startup
+1. Verify the symlink: `ls -la ~/.agents/skills/forge`
+2. Check skills exist: `ls ~/.codex/forge/skills`
+3. Restart Codex -- skills are discovered at startup
 
 ### Windows junction issues
 
@@ -122,5 +122,5 @@ Junctions normally work without special permissions. If creation fails, try runn
 
 ## Getting Help
 
-- Report issues: https://github.com/obra/superpowers/issues
-- Main documentation: https://github.com/obra/superpowers
+- Report issues: https://github.com/rahulsc/superpowers/issues
+- Main documentation: https://github.com/rahulsc/superpowers

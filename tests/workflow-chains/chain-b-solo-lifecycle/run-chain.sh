@@ -17,7 +17,7 @@ echo ""
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 TIMESTAMP=$(date +%s)
-WORK_DIR="/tmp/superpowers-tests/${TIMESTAMP}/chain-b-solo-lifecycle"
+WORK_DIR="/tmp/forge-tests/${TIMESTAMP}/chain-b-solo-lifecycle"
 mkdir -p "$WORK_DIR"
 
 # Copy project scaffold
@@ -28,9 +28,9 @@ cp "$CHAIN_DIR/fixtures/design.md" "$WORK_DIR/docs/plans/design.md"
 # Set up git repo
 setup_git_repo "$WORK_DIR"
 
-# Create .superpowers/state.yml with design approved
-mkdir -p "$WORK_DIR/.superpowers"
-cat > "$WORK_DIR/.superpowers/state.yml" <<'EOF'
+# Create .forge/state.yml with design approved
+mkdir -p "$WORK_DIR/.forge"
+cat > "$WORK_DIR/.forge/state.yml" <<'EOF'
 design:
   approved: true
   file: docs/plans/design.md

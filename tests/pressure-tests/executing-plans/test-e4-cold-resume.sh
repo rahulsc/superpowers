@@ -7,7 +7,7 @@ echo "Pressure: tasks 1-3 complete, task 4 in-progress — agent should skip to 
 echo ""
 
 TIMESTAMP=$(date +%s)
-PROJECT_DIR="/tmp/superpowers-tests/${TIMESTAMP}/e4-cold-resume/project"
+PROJECT_DIR="/tmp/forge-tests/${TIMESTAMP}/e4-cold-resume/project"
 setup_node_project "$PROJECT_DIR"
 setup_git_repo "$PROJECT_DIR"
 
@@ -33,8 +33,8 @@ cat > "$PROJECT_DIR/docs/plans/auth-system/plan.md" <<'EOF'
 EOF
 
 # Create state.yml with tasks 1-3 complete, task 4 in-progress
-mkdir -p "$PROJECT_DIR/.superpowers"
-cat > "$PROJECT_DIR/.superpowers/state.yml" <<'EOF'
+mkdir -p "$PROJECT_DIR/.forge"
+cat > "$PROJECT_DIR/.forge/state.yml" <<'EOF'
 plan:
   file: docs/plans/auth-system/plan.md
 tasks:

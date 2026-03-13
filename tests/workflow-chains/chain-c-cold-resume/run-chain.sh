@@ -11,7 +11,7 @@ echo ""
 
 # --- Setup ---
 TIMESTAMP=$(date +%s)
-PROJECT_DIR="/tmp/superpowers-tests/${TIMESTAMP}/chain-c/project"
+PROJECT_DIR="/tmp/forge-tests/${TIMESTAMP}/chain-c/project"
 mkdir -p "$PROJECT_DIR"
 
 # Copy project scaffold (tasks 1-3 already implemented)
@@ -22,8 +22,8 @@ mkdir -p "$PROJECT_DIR/docs/plans/feature"
 cp "$FIXTURES_DIR/plan.md" "$PROJECT_DIR/docs/plans/feature/plan.md"
 
 # Set up state.yml — agent should read this to find resume point
-mkdir -p "$PROJECT_DIR/.superpowers"
-cp "$FIXTURES_DIR/state.yml" "$PROJECT_DIR/.superpowers/state.yml"
+mkdir -p "$PROJECT_DIR/.forge"
+cp "$FIXTURES_DIR/state.yml" "$PROJECT_DIR/.forge/state.yml"
 
 # Initialize git so the agent has a real repo
 git -C "$PROJECT_DIR" init -q
@@ -33,11 +33,11 @@ git -C "$PROJECT_DIR" add -A
 git -C "$PROJECT_DIR" commit -q -m "Tasks 1-3 complete"
 
 echo "Project scaffolded at: $PROJECT_DIR"
-echo "State: $(cat "$PROJECT_DIR/.superpowers/state.yml")"
+echo "State: $(cat "$PROJECT_DIR/.forge/state.yml")"
 echo ""
 
 # --- Run Claude ---
-LOG_DIR="/tmp/superpowers-tests/${TIMESTAMP}/chain-c"
+LOG_DIR="/tmp/forge-tests/${TIMESTAMP}/chain-c"
 LOG_FILE="$LOG_DIR/claude-output.json"
 mkdir -p "$LOG_DIR"
 

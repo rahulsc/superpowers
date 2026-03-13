@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pressure test helpers for Superpowers skill testing
+# Pressure test helpers for Forge skill testing
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../claude-code/test-helpers.sh"
@@ -15,7 +15,7 @@ run_pressure_test() {
 
     local timestamp
     timestamp=$(date +%s)
-    local output_dir="/tmp/superpowers-tests/${timestamp}/pressure-tests/${skill_name}/${test_name}"
+    local output_dir="/tmp/forge-tests/${timestamp}/pressure-tests/${skill_name}/${test_name}"
     mkdir -p "$output_dir"
 
     local log_file="$output_dir/claude-output.json"

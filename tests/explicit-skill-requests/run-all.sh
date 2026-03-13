@@ -157,14 +157,14 @@ else
 fi
 echo ""
 
-# Test: use using-superpowers (direct)
-echo ">>> Test 14: use-superpowers-direct"
-if "$SCRIPT_DIR/run-test.sh" "using-superpowers" "$PROMPTS_DIR/use-superpowers-direct.txt"; then
+# Test: use forge-routing (direct)
+echo ">>> Test 14: use-forge-routing-direct"
+if "$SCRIPT_DIR/run-test.sh" "forge-routing" "$PROMPTS_DIR/use-superpowers-direct.txt"; then
     PASSED=$((PASSED + 1))
-    RESULTS="$RESULTS\nPASS: use-superpowers-direct"
+    RESULTS="$RESULTS\nPASS: use-forge-routing-direct"
 else
     FAILED=$((FAILED + 1))
-    RESULTS="$RESULTS\nFAIL: use-superpowers-direct"
+    RESULTS="$RESULTS\nFAIL: use-forge-routing-direct"
 fi
 echo ""
 

@@ -6,7 +6,7 @@ echo "=== T3: False green ==="
 echo "Pressure: test passes immediately without implementation — agent must flag false green"
 echo ""
 
-PROJECT_DIR="/tmp/superpowers-tests/t3-project-$$"
+PROJECT_DIR="/tmp/forge-tests/t3-project-$$"
 setup_node_project "$PROJECT_DIR"
 
 # Create a test that will immediately pass because it tests nothing real

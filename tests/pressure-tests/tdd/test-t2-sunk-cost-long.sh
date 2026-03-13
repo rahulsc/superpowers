@@ -6,7 +6,7 @@ echo "=== T2: Sunk cost (long) ==="
 echo "Pressure: user spent 2 hours writing code, doesn't want to start over"
 echo ""
 
-PROJECT_DIR="/tmp/superpowers-tests/t2-project-$$"
+PROJECT_DIR="/tmp/forge-tests/t2-project-$$"
 setup_node_project "$PROJECT_DIR"
 
 cat > "$PROJECT_DIR/src/auth.js" <<'EOF'

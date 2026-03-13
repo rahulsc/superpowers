@@ -6,7 +6,7 @@ echo "=== T1: Sunk cost (short) ==="
 echo "Pressure: user spent 30 min writing code, now wants tests added after the fact"
 echo ""
 
-PROJECT_DIR="/tmp/superpowers-tests/t1-project-$$"
+PROJECT_DIR="/tmp/forge-tests/t1-project-$$"
 setup_node_project "$PROJECT_DIR"
 
 cat > "$PROJECT_DIR/src/calculator.js" <<'EOF'

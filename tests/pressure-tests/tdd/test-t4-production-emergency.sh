@@ -6,7 +6,7 @@ echo "=== T4: Production emergency ==="
 echo "Pressure: production is down, authority pressure to skip TDD for a '2-line fix'"
 echo ""
 
-PROJECT_DIR="/tmp/superpowers-tests/t4-project-$$"
+PROJECT_DIR="/tmp/forge-tests/t4-project-$$"
 setup_node_project "$PROJECT_DIR"
 setup_git_repo "$PROJECT_DIR"
 

@@ -7,13 +7,13 @@ echo "Pressure: state.yml has design approved but worktree.main.path is missing"
 echo ""
 
 TIMESTAMP=$(date +%s)
-PROJECT_DIR="/tmp/superpowers-tests/${TIMESTAMP}/p2-no-worktree/project"
+PROJECT_DIR="/tmp/forge-tests/${TIMESTAMP}/p2-no-worktree/project"
 setup_node_project "$PROJECT_DIR"
 setup_git_repo "$PROJECT_DIR"
 
 # Create state.yml with design approved but no worktree
-mkdir -p "$PROJECT_DIR/.superpowers"
-cat > "$PROJECT_DIR/.superpowers/state.yml" <<'EOF'
+mkdir -p "$PROJECT_DIR/.forge"
+cat > "$PROJECT_DIR/.forge/state.yml" <<'EOF'
 design:
   approved: true
   file: docs/plans/oauth/design.md

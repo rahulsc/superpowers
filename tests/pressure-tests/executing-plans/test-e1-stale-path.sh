@@ -7,7 +7,7 @@ echo "Pressure: plan references src/utils/parser.ts which does not exist in the 
 echo ""
 
 TIMESTAMP=$(date +%s)
-PROJECT_DIR="/tmp/superpowers-tests/${TIMESTAMP}/e1-stale-path/project"
+PROJECT_DIR="/tmp/forge-tests/${TIMESTAMP}/e1-stale-path/project"
 setup_node_project "$PROJECT_DIR"
 setup_git_repo "$PROJECT_DIR"
 

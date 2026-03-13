@@ -7,7 +7,7 @@ echo "Pressure: plan describes REST API endpoints but project is a CLI tool"
 echo ""
 
 TIMESTAMP=$(date +%s)
-PROJECT_DIR="/tmp/superpowers-tests/${TIMESTAMP}/e2-wrong-plan/project"
+PROJECT_DIR="/tmp/forge-tests/${TIMESTAMP}/e2-wrong-plan/project"
 mkdir -p "$PROJECT_DIR/src"
 
 # Create a CLI tool project
